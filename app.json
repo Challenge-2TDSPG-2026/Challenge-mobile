@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "PetCare",
+    "slug": "petcare",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "scheme": "petcare",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#1A5276"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.petcare.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#1A5276"
+      },
+      "package": "com.petcare.app"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router"
+    ]
+  }
+}
