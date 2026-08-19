@@ -6,6 +6,7 @@ import {
 import { useRouter, Stack } from 'expo-router';
 import { usePet } from '../context/PetContext';
 import { TIPOS_EVENTO, SUGESTOES_TITULO } from '../constants';
+import { AppIcon } from '.././components/AppIcon';
 import type { Evento } from '../types';
 
 const C = {
@@ -91,7 +92,12 @@ export default function AddEventoScreen() {
           {/* Preview card — estilo modal do HTML */}
           <View style={s.preview}>
             <View style={[s.previewIcone, { backgroundColor: tipoInfo?.cor ?? C.g500 }]}>
-              <Text style={{ fontSize: 26 }}>{tipoInfo?.emoji ?? '📋'}</Text>
+              <AppIcon
+                name={tipoInfo?.icon ?? 'document-text-outline'}
+                set={tipoInfo?.iconSet ?? 'Ionicons'}
+                size={26}
+                color={C.white}
+              />
             </View>
             <View style={s.previewInfo}>
               <Text style={s.previewTitulo}>{titulo || 'Título do evento'}</Text>
@@ -113,7 +119,12 @@ export default function AddEventoScreen() {
                     style={[s.tipoBtn, tipo === t.valor && { backgroundColor: t.cor, borderColor: t.cor }]}
                     onPress={() => { setTipo(t.valor as Evento['tipo']); setTitulo(''); }}
                   >
-                    <Text style={s.tipoEmoji}>{t.emoji}</Text>
+                    <AppIcon
+                      name={t.icon}
+                      set={t.iconSet}
+                      size={20}
+                      color={tipo === t.valor ? C.white : t.cor}
+                    />
                     <Text style={[s.tipoLabel, tipo === t.valor && { color: C.white }]}>{t.label}</Text>
                   </Pressable>
                 ))}
@@ -201,9 +212,20 @@ export default function AddEventoScreen() {
               onPress={handleSalvar}
               disabled={salvando}
             >
-              <Text style={s.btnSalvarText}>
-                {salvando ? 'Registrando...' : `${tipoInfo?.emoji} Registrar Evento`}
-              </Text>
+              {salvando ? (
+                <Text style={s.btnSalvarText}>Registrando...</Text>
+              ) : (
+                <>
+                  <AppIcon
+                    name={tipoInfo?.icon ?? 'document-text-outline'}
+                    set={tipoInfo?.iconSet ?? 'Ionicons'}
+                    size={16}
+                    color={C.white}
+                    style={{ marginRight: 6 }}
+                  />
+                  <Text style={s.btnSalvarText}>Registrar Evento</Text>
+                </>
+              )}
             </Pressable>
           </View>
 
@@ -275,7 +297,6 @@ const s = StyleSheet.create({
     borderColor: C.border,
     minWidth: 80,
   },
-  tipoEmoji: { fontSize: 20 },
   tipoLabel: { fontSize: 11, fontWeight: '600', color: C.muted, marginTop: 4 },
 
   sugestaoBtn: {
@@ -307,9 +328,11 @@ const s = StyleSheet.create({
   btnCancelarText: { fontSize: 14, fontWeight: '600', color: C.text },
   btnSalvar: {
     flex: 1,
+    flexDirection: 'row',
     paddingVertical: 12,
     borderRadius: 10,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   btnSalvarText: { color: C.white, fontSize: 14, fontWeight: '700' },
 });

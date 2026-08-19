@@ -6,6 +6,7 @@ import {
 import { useRouter } from 'expo-router';
 import { ESPECIES } from '../constants';
 import { usePet } from '../context/PetContext';
+import { AppIcon } from '../components/AppIcon';
 import type { Pet } from '../types';
 
 const C = {
@@ -84,7 +85,7 @@ export default function OnboardingScreen() {
           {/* Header */}
           <View style={s.authHdr}>
             <View style={s.authLogo}>
-              <Text style={s.authLogoEmoji}>🐾</Text>
+              <AppIcon name="paw" set="MaterialCommunityIcons" size={26} color={C.white} />
             </View>
             <Text style={s.authName}>ClyvoVet</Text>
             <Text style={s.authSub}>Plataforma de Saúde Animal</Text>
@@ -102,7 +103,13 @@ export default function OnboardingScreen() {
 
             {/* Preview */}
             <View style={s.previewCard}>
-              <Text style={s.previewEmoji}>{especieInfo?.emoji ?? '🐾'}</Text>
+              <AppIcon
+                name={especieInfo?.icon ?? 'paw'}
+                set={especieInfo?.iconSet ?? 'MaterialCommunityIcons'}
+                size={38}
+                color={C.g600}
+                style={s.previewIcon}
+              />
               <View style={s.previewInfo}>
                 <Text style={s.previewNome}>{nome || 'Nome do pet'}</Text>
                 <Text style={s.previewSub}>{raca || 'Raça'} • {peso ? `${peso} kg` : 'Peso'}</Text>
@@ -122,7 +129,12 @@ export default function OnboardingScreen() {
                     style={[s.especieBtn, especie === esp.valor && s.especieBtnAtivo]}
                     onPress={() => setEspecie(esp.valor as Pet['especie'])}
                   >
-                    <Text style={s.especieEmoji}>{esp.emoji}</Text>
+                    <AppIcon
+                      name={esp.icon}
+                      set={esp.iconSet}
+                      size={20}
+                      color={especie === esp.valor ? C.white : C.muted}
+                    />
                     <Text style={[s.especieLabel, especie === esp.valor && s.especieLabelAtivo]}>
                       {esp.label}
                     </Text>
@@ -223,7 +235,6 @@ const s = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
-  authLogoEmoji: { fontSize: 24 },
   authName: { fontSize: 26, fontWeight: '700', color: C.white, letterSpacing: -0.5, marginBottom: 4 },
   authSub: { fontSize: 12, color: C.g200 },
 
@@ -248,7 +259,7 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.border,
   },
-  previewEmoji: { fontSize: 38, marginRight: 14 },
+  previewIcon: { marginRight: 14 },
   previewInfo: { flex: 1 },
   previewNome: { fontSize: 16, fontWeight: '700', color: C.text },
   previewSub: { fontSize: 12, color: C.muted, marginTop: 2 },
@@ -284,7 +295,6 @@ const s = StyleSheet.create({
     borderColor: C.border,
   },
   especieBtnAtivo: { backgroundColor: C.g600, borderColor: C.g600 },
-  especieEmoji: { fontSize: 20 },
   especieLabel: { fontSize: 11, color: C.muted, marginTop: 3, fontWeight: '600' },
   especieLabelAtivo: { color: C.white },
 

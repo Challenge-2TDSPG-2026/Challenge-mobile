@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { usePet } from '../../context/PetContext';
 import { CORES, ESPECIES, TIPOS_EVENTO } from '../../constants';
+import { AppIcon } from '../../components/AppIcon';
 import type { Evento } from '../../types';
 
 const C = {
@@ -61,7 +62,12 @@ export default function DashboardScreen() {
 
       {/* Welcome banner */}
       <View style={s.welcome}>
-        <Text style={s.welcomeEmoji}>{especieInfo?.emoji ?? '🐾'}</Text>
+        <AppIcon
+          name={especieInfo?.icon ?? 'paw'}
+          set={especieInfo?.iconSet ?? 'MaterialCommunityIcons'}
+          size={36}
+          color={C.white}
+        />
         <View style={s.welcomeInfo}>
           <Text style={s.welcomeNome}>Olá, {pet.nome}!</Text>
           <Text style={s.welcomeSub}>Gerencie a saúde do seu pet em um só lugar.</Text>
@@ -85,7 +91,12 @@ export default function DashboardScreen() {
         </View>
         <View style={s.petRow}>
           <View style={s.petAvatar}>
-            <Text style={s.petAvatarEmoji}>{especieInfo?.emoji ?? '🐾'}</Text>
+            <AppIcon
+              name={especieInfo?.icon ?? 'paw'}
+              set={especieInfo?.iconSet ?? 'MaterialCommunityIcons'}
+              size={22}
+              color={C.g600}
+            />
           </View>
           <View style={s.petInfo}>
             <Text style={s.petNome}>{pet.nome}</Text>
@@ -94,7 +105,8 @@ export default function DashboardScreen() {
             <Text style={s.petDetalhe}>Peso: {pet.peso ? `${pet.peso} kg` : '—'}</Text>
           </View>
           <Pressable style={s.btnProntuario} onPress={() => router.push('/(tabs)/agenda')}>
-            <Text style={s.btnProntuarioText}>🩺 Agenda</Text>
+            <AppIcon name="pulse-outline" set="Ionicons" size={14} color={C.text} style={{ marginRight: 4 }} />
+            <Text style={s.btnProntuarioText}>Agenda</Text>
           </Pressable>
         </View>
       </View>
@@ -110,7 +122,7 @@ export default function DashboardScreen() {
 
         {proximos.length === 0 ? (
           <View style={s.empty}>
-            <Text style={s.emptyEmoji}>📅</Text>
+            <AppIcon name="calendar-outline" set="Ionicons" size={36} color={C.muted} style={s.emptyIcon} />
             <Text style={s.emptyTitle}>Nenhum evento pendente</Text>
             <Text style={s.emptySub}>Adicione eventos de saúde para o seu pet</Text>
           </View>
@@ -122,7 +134,7 @@ export default function DashboardScreen() {
             return (
               <View key={e.id} style={[s.eventoRow, !isLast && s.eventoRowBorder]}>
                 <View style={[s.eventoIcone, { backgroundColor: t?.cor ?? C.g500 }]}>
-                  <Text style={{ fontSize: 16 }}>{t?.emoji ?? '📋'}</Text>
+                  <AppIcon name={t?.icon ?? 'document-text-outline'} set={t?.iconSet ?? 'Ionicons'} size={16} color={C.white} />
                 </View>
                 <View style={s.eventoInfo}>
                   <Text style={s.eventoTitulo}>{e.titulo}</Text>
@@ -169,7 +181,6 @@ const s = StyleSheet.create({
     marginBottom: 20,
     gap: 14,
   },
-  welcomeEmoji: { fontSize: 40 },
   welcomeInfo: { flex: 1 },
   welcomeNome: { fontSize: 18, fontWeight: '700', color: C.white, letterSpacing: -0.3 },
   welcomeSub: { fontSize: 12, color: 'rgba(168,230,199,0.85)', marginTop: 3 },
@@ -219,11 +230,12 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  petAvatarEmoji: { fontSize: 22 },
   petInfo: { flex: 1 },
   petNome: { fontSize: 15, fontWeight: '700', color: C.text },
   petDetalhe: { fontSize: 12, color: C.muted, marginTop: 2 },
   btnProntuario: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: C.white,
     borderWidth: 1.5,
     borderColor: C.border,
@@ -243,7 +255,7 @@ const s = StyleSheet.create({
   badgeText: { fontSize: 11, fontWeight: '700' },
 
   empty: { alignItems: 'center', paddingVertical: 36 },
-  emptyEmoji: { fontSize: 36, marginBottom: 10 },
+  emptyIcon: { marginBottom: 10 },
   emptyTitle: { fontSize: 14, fontWeight: '700', color: C.text, marginBottom: 4 },
   emptySub: { fontSize: 12, color: C.muted },
 

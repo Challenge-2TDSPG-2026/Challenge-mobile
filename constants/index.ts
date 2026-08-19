@@ -26,19 +26,19 @@ export const STORAGE_KEYS = {
 };
 
 export const ESPECIES = [
-  { valor: 'cachorro', label: 'Cão', emoji: '🐶' },
-  { valor: 'gato', label: 'Gato', emoji: '🐱' },
-  { valor: 'pássaro', label: 'Ave', emoji: '🦜' },
-  { valor: 'outro', label: 'Outro', emoji: '🐾' },
+  { valor: 'cachorro', label: 'Cão', icon: 'dog', iconSet: 'MaterialCommunityIcons' },
+  { valor: 'gato', label: 'Gato', icon: 'cat', iconSet: 'MaterialCommunityIcons' },
+  { valor: 'pássaro', label: 'Ave', icon: 'bird', iconSet: 'MaterialCommunityIcons' },
+  { valor: 'outro', label: 'Outro', icon: 'paw', iconSet: 'MaterialCommunityIcons' },
 ] as const;
 
 export const TIPOS_EVENTO = [
-  { valor: 'vacina', label: 'Vacina', emoji: '💉', cor: '#22a06b' },
-  { valor: 'vermifugo', label: 'Vermífugo', emoji: '🪱', cor: '#9B59B6' },
-  { valor: 'consulta', label: 'Consulta', emoji: '🏥', cor: '#2563eb' },
-  { valor: 'medicamento', label: 'Medicamento', emoji: '💊', cor: '#e67e22' },
-  { valor: 'checkup', label: 'Check-up', emoji: '🩺', cor: '#1ABC9C' },
-  { valor: 'outro', label: 'Outro', emoji: '📋', cor: '#7a6a5e' },
+  { valor: 'vacina', label: 'Vacina', icon: 'needle', iconSet: 'MaterialCommunityIcons', cor: '#22a06b' },
+  { valor: 'vermifugo', label: 'Vermífugo', icon: 'bug-outline', iconSet: 'Ionicons', cor: '#9B59B6' },
+  { valor: 'consulta', label: 'Consulta', icon: 'medical-bag', iconSet: 'MaterialCommunityIcons', cor: '#2563eb' },
+  { valor: 'medicamento', label: 'Medicamento', icon: 'medkit-outline', iconSet: 'Ionicons', cor: '#e67e22' },
+  { valor: 'checkup', label: 'Check-up', icon: 'pulse-outline', iconSet: 'Ionicons', cor: '#1ABC9C' },
+  { valor: 'outro', label: 'Outro', icon: 'document-text-outline', iconSet: 'Ionicons', cor: '#7a6a5e' },
 ] as const;
 
 export const SUGESTOES_TITULO: Record<string, Record<string, string[]>> = {

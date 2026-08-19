@@ -24,7 +24,7 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: 'Início',
-          headerTitle: '🐾 PetCare',
+          headerTitle: 'PetCare',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home" size={size} color={color} />
           ),
@@ -34,7 +34,7 @@ export default function TabsLayout() {
         name="agenda"
         options={{
           title: 'Agenda',
-          headerTitle: '📅 Agenda de Saúde',
+          headerTitle: 'Agenda de Saúde',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="calendar" size={size} color={color} />
           ),
@@ -44,7 +44,7 @@ export default function TabsLayout() {
         name="historico"
         options={{
           title: 'Histórico',
-          headerTitle: '📋 Histórico Clínico',
+          headerTitle: 'Histórico Clínico',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="time" size={size} color={color} />
           ),
@@ -54,7 +54,7 @@ export default function TabsLayout() {
         name="perfil"
         options={{
           title: 'Perfil',
-          headerTitle: '👤 Perfil',
+          headerTitle: 'Perfil',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="person" size={size} color={color} />
           ),

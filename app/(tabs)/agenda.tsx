@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { usePet } from '../../context/PetContext';
 import { CORES, TIPOS_EVENTO } from '../../constants';
+import { AppIcon } from '../../components/AppIcon';
 import type { Evento } from '../../types';
 
 const C = {
@@ -16,15 +17,15 @@ const C = {
 
 type Filtro = 'todos' | 'atrasado' | 'vacina' | 'consulta' | 'vermifugo' | 'medicamento' | 'checkup' | 'outro';
 
-const FILTROS: { valor: Filtro; label: string }[] = [
-  { valor: 'todos', label: 'Todos' },
-  { valor: 'atrasado', label: '⚠️ Atrasados' },
-  { valor: 'vacina', label: '💉 Vacina' },
-  { valor: 'consulta', label: '🏥 Consulta' },
-  { valor: 'vermifugo', label: '🪱 Vermífugo' },
-  { valor: 'medicamento', label: '💊 Medicamento' },
-  { valor: 'checkup', label: '🩺 Check-up' },
-  { valor: 'outro', label: '📋 Outro' },
+const FILTROS: { valor: Filtro; label: string; icon: string; iconSet: 'Ionicons' | 'MaterialCommunityIcons' }[] = [
+  { valor: 'todos', label: 'Todos', icon: 'apps-outline', iconSet: 'Ionicons' },
+  { valor: 'atrasado', label: 'Atrasados', icon: 'alert-circle-outline', iconSet: 'Ionicons' },
+  { valor: 'vacina', label: 'Vacina', icon: 'needle', iconSet: 'MaterialCommunityIcons' },
+  { valor: 'consulta', label: 'Consulta', icon: 'medical-bag', iconSet: 'MaterialCommunityIcons' },
+  { valor: 'vermifugo', label: 'Vermífugo', icon: 'bug-outline', iconSet: 'Ionicons' },
+  { valor: 'medicamento', label: 'Medicamento', icon: 'medkit-outline', iconSet: 'Ionicons' },
+  { valor: 'checkup', label: 'Check-up', icon: 'pulse-outline', iconSet: 'Ionicons' },
+  { valor: 'outro', label: 'Outro', icon: 'document-text-outline', iconSet: 'Ionicons' },
 ];
 
 const STATUS_BADGE: Record<string, { bg: string; color: string; label: string }> = {
@@ -74,6 +75,13 @@ export default function AgendaScreen() {
             style={[s.filtroBtn, filtro === f.valor && s.filtroBtnAtivo]}
             onPress={() => setFiltro(f.valor)}
           >
+            <AppIcon
+              name={f.icon}
+              set={f.iconSet}
+              size={14}
+              color={filtro === f.valor ? C.white : C.text}
+              style={{ marginRight: 5 }}
+            />
             <Text style={[s.filtroText, filtro === f.valor && s.filtroTextAtivo]}>{f.label}</Text>
           </Pressable>
         ))}
@@ -92,7 +100,7 @@ export default function AgendaScreen() {
               {/* Linha principal */}
               <View style={s.cardRow}>
                 <View style={[s.eventoIcone, { backgroundColor: t?.cor ?? C.g500 }]}>
-                  <Text style={{ fontSize: 18 }}>{t?.emoji ?? '📋'}</Text>
+                  <AppIcon name={t?.icon ?? 'document-text-outline'} set={t?.iconSet ?? 'Ionicons'} size={18} color={C.white} />
                 </View>
                 <View style={s.eventoInfo}>
                   <Text style={s.eventoTitulo}>{item.titulo}</Text>
@@ -131,7 +139,7 @@ export default function AgendaScreen() {
         }}
         ListEmptyComponent={
           <View style={s.empty}>
-            <Text style={s.emptyEmoji}>📅</Text>
+            <AppIcon name="calendar-outline" set="Ionicons" size={40} color={C.muted} style={s.emptyIcon} />
             <Text style={s.emptyTitle}>Nenhum evento encontrado</Text>
             <Text style={s.emptySub}>Tente outro filtro ou adicione um novo evento</Text>
           </View>
@@ -152,6 +160,8 @@ const s = StyleSheet.create({
   filtroBar: { flexGrow: 0, backgroundColor: C.white, borderBottomWidth: 1, borderBottomColor: C.border },
   filtroContent: { padding: 12, gap: 8 },
   filtroBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 20,
@@ -212,7 +222,7 @@ const s = StyleSheet.create({
   btnAcaoText: { fontSize: 12, fontWeight: '600' },
 
   empty: { alignItems: 'center', paddingVertical: 64 },
-  emptyEmoji: { fontSize: 40, marginBottom: 12 },
+  emptyIcon: { marginBottom: 12 },
   emptyTitle: { fontSize: 15, fontWeight: '700', color: C.text, marginBottom: 4 },
   emptySub: { fontSize: 13, color: C.muted, textAlign: 'center' },
 

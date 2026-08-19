@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { usePet } from '../../context/PetContext';
 import { TIPOS_EVENTO } from '../../constants';
+import { AppIcon } from '../../components/AppIcon';
 import type { Evento } from '../../types';
 
 const C = {
@@ -85,7 +86,7 @@ export default function HistoricoScreen() {
       {/* Timeline */}
       {Object.keys(agrupados).length === 0 ? (
         <View style={s.empty}>
-          <Text style={s.emptyEmoji}>📋</Text>
+          <AppIcon name="document-text-outline" set="Ionicons" size={40} color={C.muted} style={s.emptyIcon} />
           <Text style={s.emptyTitle}>Nenhum evento registrado ainda</Text>
           <Text style={s.emptySub}>Adicione eventos para ver o histórico clínico</Text>
         </View>
@@ -115,7 +116,7 @@ export default function HistoricoScreen() {
                     {/* Evento */}
                     <View style={[s.tdEvento, { flex: 2 }]}>
                       <View style={[s.rowIcone, { backgroundColor: t?.cor ?? C.g500 }]}>
-                        <Text style={{ fontSize: 13 }}>{t?.emoji ?? '📋'}</Text>
+                        <AppIcon name={t?.icon ?? 'document-text-outline'} set={t?.iconSet ?? 'Ionicons'} size={13} color={C.white} />
                       </View>
                       <View>
                         <Text style={s.rowTitulo} numberOfLines={1}>{evento.titulo}</Text>
@@ -182,7 +183,7 @@ const s = StyleSheet.create({
   progressoHint: { fontSize: 12, color: 'rgba(255,255,255,0.5)' },
 
   empty: { alignItems: 'center', paddingVertical: 56 },
-  emptyEmoji: { fontSize: 40, marginBottom: 12 },
+  emptyIcon: { marginBottom: 12 },
   emptyTitle: { fontSize: 15, fontWeight: '700', color: C.text, marginBottom: 4 },
   emptySub: { fontSize: 13, color: C.muted, textAlign: 'center' },
 
