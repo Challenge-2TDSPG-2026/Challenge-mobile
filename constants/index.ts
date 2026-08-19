@@ -19,11 +19,11 @@ export const CORES = {
 };
 
 export const STORAGE_KEYS = {
-  PET: '@petcare:pet',
-  EVENTOS: '@petcare:eventos',
-  ONBOARDING_CONCLUIDO: '@petcare:onboarding',
-  NOTIFICACOES: '@petcare:notificacoes',
-  SESSAO: '@petcare:sessao',
+  PET: '@VetSync:pet',
+  EVENTOS: '@VetSync:eventos',
+  ONBOARDING_CONCLUIDO: '@VetSync:onboarding',
+  NOTIFICACOES: '@VetSync:notificacoes',
+  SESSAO: '@VetSync:sessao',
 };
 
 export const ESPECIES = [
