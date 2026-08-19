@@ -23,6 +23,7 @@ export const STORAGE_KEYS = {
   EVENTOS: '@petcare:eventos',
   ONBOARDING_CONCLUIDO: '@petcare:onboarding',
   NOTIFICACOES: '@petcare:notificacoes',
+  SESSAO: '@petcare:sessao',
 };
 
 export const ESPECIES = [
