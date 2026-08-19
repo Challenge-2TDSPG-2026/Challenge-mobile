@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View, Text, TextInput, ScrollView, Pressable,
-  StyleSheet, KeyboardAvoidingView, Platform, Alert,
+  StyleSheet, KeyboardAvoidingView, Platform, Alert, Animated,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ESPECIES } from '../constants';
@@ -33,10 +33,32 @@ export default function OnboardingScreen() {
   const [aba, setAba] = useState<Aba>('cadastrar');
   const [etapaCadastro, setEtapaCadastro] = useState<EtapaCadastro>('conta');
 
+  // --- Animações ---
+  const contentAnim = useRef(new Animated.Value(1)).current;
+  const indicatorAnim = useRef(new Animated.Value(0)).current; // 0 = cadastrar, 1 = entrar
+  const [tabsWidth, setTabsWidth] = useState(0);
+
+  function trocarConteudo(atualizarEstado: () => void) {
+    Animated.timing(contentAnim, {
+      toValue: 0,
+      duration: 130,
+      useNativeDriver: true,
+    }).start(() => {
+      atualizarEstado();
+      Animated.timing(contentAnim, {
+        toValue: 1,
+        duration: 220,
+        useNativeDriver: true,
+      }).start();
+    });
+  }
+
+  // --- Conta (usado no Cadastro, passo 1, e no Login) ---
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [errosConta, setErrosConta] = useState<Record<string, string>>({});
 
+  // --- Dados do pet (Cadastro, passo 2) ---
   const [nome, setNome] = useState('');
   const [especie, setEspecie] = useState<Pet['especie']>('cachorro');
   const [raca, setRaca] = useState('');
@@ -55,7 +77,9 @@ export default function OnboardingScreen() {
 
   function handleContinuarConta() {
     if (!validarConta()) return;
-    setEtapaCadastro('pet');
+    // TODO: quando o backend estiver pronto, criar a conta aqui (email/senha)
+    // antes de liberar o passo de dados do pet.
+    trocarConteudo(() => setEtapaCadastro('pet'));
   }
 
   function validarPet(): boolean {
@@ -91,18 +115,39 @@ export default function OnboardingScreen() {
 
   function handleEntrar() {
     if (!validarConta()) return;
+    // TODO: substituir por chamada real de autenticação quando o backend estiver pronto
     Alert.alert(
       'Login em breve',
-      'O login por conta chegará em uma próxima atualização. Por enquanto, você pode cadastrar um novo pet.',);
+      'O login com conta ainda não está disponível — o backend será integrado em uma próxima sprint.'
+    );
   }
 
   function trocarAba(novaAba: Aba) {
-    setAba(novaAba);
-    setEtapaCadastro('conta');
-    setErrosConta({});
+    if (novaAba === aba) return;
+    trocarConteudo(() => {
+      setAba(novaAba);
+      setEtapaCadastro('conta');
+      setErrosConta({});
+    });
+    Animated.spring(indicatorAnim, {
+      toValue: novaAba === 'cadastrar' ? 0 : 1,
+      useNativeDriver: true,
+      friction: 8,
+      tension: 60,
+    }).start();
   }
 
   const especieInfo = ESPECIES.find(e => e.valor === especie);
+
+  const contentTranslateY = contentAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [10, 0],
+  });
+
+  const indicatorTranslateX = indicatorAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, tabsWidth / 2],
+  });
 
   return (
     <KeyboardAvoidingView
@@ -123,201 +168,214 @@ export default function OnboardingScreen() {
             <View style={s.authLogo}>
               <AppIcon name="paw" set="MaterialCommunityIcons" size={26} color={C.white} />
             </View>
-            <Text style={s.authName}>VetSync</Text>
+            <Text style={s.authName}>ClyvoVet</Text>
             <Text style={s.authSub}>Plataforma de Saúde Animal</Text>
           </View>
 
           {/* Tab bar — Cadastrar / Entrar */}
-          <View style={s.authTabs}>
-            <Pressable
-              style={[s.authTab, aba === 'cadastrar' && s.authTabAtiva]}
-              onPress={() => trocarAba('cadastrar')}
-            >
+          <View
+            style={s.authTabs}
+            onLayout={e => setTabsWidth(e.nativeEvent.layout.width)}
+          >
+            <Pressable style={s.authTab} onPress={() => trocarAba('cadastrar')}>
               <Text style={[s.authTabText, aba !== 'cadastrar' && s.authTabTextInativa]}>
                 Cadastrar Pet
               </Text>
             </Pressable>
-            <Pressable
-              style={[s.authTab, aba === 'entrar' && s.authTabAtiva]}
-              onPress={() => trocarAba('entrar')}
-            >
+            <Pressable style={s.authTab} onPress={() => trocarAba('entrar')}>
               <Text style={[s.authTabText, aba !== 'entrar' && s.authTabTextInativa]}>
                 Entrar
               </Text>
             </Pressable>
+
+            {tabsWidth > 0 && (
+              <Animated.View
+                style={[
+                  s.authTabIndicator,
+                  {
+                    width: tabsWidth / 2,
+                    transform: [{ translateX: indicatorTranslateX }],
+                  },
+                ]}
+              />
+            )}
           </View>
 
-          {aba === 'cadastrar' ? (
-            <View style={s.authForm}>
+          <Animated.View
+            style={{
+              opacity: contentAnim,
+              transform: [{ translateY: contentTranslateY }],
+            }}
+          >
+            {aba === 'cadastrar' ? (
+              <View style={s.authForm}>
 
-              {/* Indicador de passo */}
-              <View style={s.passos}>
-                <View style={[s.passoDot, etapaCadastro === 'conta' && s.passoDotAtivo]} />
-                <View style={s.passoLinha} />
-                <View style={[s.passoDot, etapaCadastro === 'pet' && s.passoDotAtivo]} />
-              </View>
-              <Text style={s.passoLabel}>
-                {etapaCadastro === 'conta' ? 'Passo 1 de 2 — Sua conta' : 'Passo 2 de 2 — Dados do pet'}
-              </Text>
+                {/* Indicador de passo */}
+                <View style={s.passos}>
+                  <View style={[s.passoDot, etapaCadastro === 'conta' && s.passoDotAtivo]} />
+                  <View style={s.passoLinha} />
+                  <View style={[s.passoDot, etapaCadastro === 'pet' && s.passoDotAtivo]} />
+                </View>
+                <Text style={s.passoLabel}>
+                  {etapaCadastro === 'conta' ? 'Passo 1 de 2 — Sua conta' : 'Passo 2 de 2 — Dados do pet'}
+                </Text>
 
-              {etapaCadastro === 'conta' ? (
-                <>
-                  <View style={s.loginIntro}>
-                    <AppIcon name="person-add-outline" set="Ionicons" size={22} color={C.g600} />
-                    <Text style={s.loginIntroText}>
-                      Crie sua conta primeiro. Depois disso você cadastra os dados do seu pet.
-                    </Text>
-                  </View>
-
-                  <Campo
-                    label="E-mail *"
-                    value={email}
-                    onChangeText={setEmail}
-                    placeholder="voce@email.com"
-                    keyboardType="email-address"
-                    erro={errosConta.email}
-                  />
-
-                  <Campo
-                    label="Senha *"
-                    value={senha}
-                    onChangeText={setSenha}
-                    placeholder="••••••••"
-                    secureTextEntry
-                    erro={errosConta.senha}
-                  />
-
-                  <Pressable style={s.btnAuth} onPress={handleContinuarConta}>
-                    <Text style={s.btnAuthText}>Continuar →</Text>
-                  </Pressable>
-                </>
-              ) : (
-                <>
-                  <Pressable style={s.btnVoltar} onPress={() => setEtapaCadastro('conta')}>
-                    <AppIcon name="arrow-back-outline" set="Ionicons" size={14} color={C.g600} />
-                    <Text style={s.btnVoltarText}>Voltar</Text>
-                  </Pressable>
-
-                  {/* Preview */}
-                  <View style={s.previewCard}>
-                    <AppIcon
-                      name={especieInfo?.icon ?? 'paw'}
-                      set={especieInfo?.iconSet ?? 'MaterialCommunityIcons'}
-                      size={38}
-                      color={C.g600}
-                      style={s.previewIcon}
-                    />
-                    <View style={s.previewInfo}>
-                      <Text style={s.previewNome}>{nome || 'Nome do pet'}</Text>
-                      <Text style={s.previewSub}>{raca || 'Raça'} • {peso ? `${peso} kg` : 'Peso'}</Text>
-                      <Text style={s.previewSub}>
-                        {dataNascimento.length === 10 ? `Nasc: ${dataNascimento}` : 'Data de nascimento'}
+                {etapaCadastro === 'conta' ? (
+                  <>
+                    <View style={s.loginIntro}>
+                      <AppIcon name="person-add-outline" set="Ionicons" size={22} color={C.g600} />
+                      <Text style={s.loginIntroText}>
+                        Crie sua conta primeiro. Depois disso você cadastra os dados do seu pet.
                       </Text>
                     </View>
-                  </View>
 
-                  {/* Espécie */}
-                  <View style={s.fg}>
-                    <Text style={s.fl}>Espécie *</Text>
-                    <View style={s.especieRow}>
-                      {ESPECIES.map(esp => (
-                        <Pressable
-                          key={esp.valor}
-                          style={[s.especieBtn, especie === esp.valor && s.especieBtnAtivo]}
-                          onPress={() => setEspecie(esp.valor as Pet['especie'])}
-                        >
-                          <AppIcon
-                            name={esp.icon}
-                            set={esp.iconSet}
-                            size={20}
-                            color={especie === esp.valor ? C.white : C.muted}
-                          />
-                          <Text style={[s.especieLabel, especie === esp.valor && s.especieLabelAtivo]}>
-                            {esp.label}
-                          </Text>
-                        </Pressable>
-                      ))}
+                    <Campo
+                      label="E-mail *"
+                      value={email}
+                      onChangeText={setEmail}
+                      placeholder="voce@email.com"
+                      keyboardType="email-address"
+                      erro={errosConta.email}
+                    />
+
+                    <Campo
+                      label="Senha *"
+                      value={senha}
+                      onChangeText={setSenha}
+                      placeholder="••••••••"
+                      secureTextEntry
+                      erro={errosConta.senha}
+                    />
+
+                    <Pressable style={s.btnAuth} onPress={handleContinuarConta}>
+                      <Text style={s.btnAuthText}>Continuar →</Text>
+                    </Pressable>
+                  </>
+                ) : (
+                  <>
+                    <Pressable
+                      style={s.btnVoltar}
+                      onPress={() => trocarConteudo(() => setEtapaCadastro('conta'))}
+                    >
+                      <AppIcon name="arrow-back-outline" set="Ionicons" size={14} color={C.g600} />
+                      <Text style={s.btnVoltarText}>Voltar</Text>
+                    </Pressable>
+
+                    {/* Preview */}
+                    <View style={s.previewCard}>
+                      <AppIcon
+                        name={especieInfo?.icon ?? 'paw'}
+                        set={especieInfo?.iconSet ?? 'MaterialCommunityIcons'}
+                        size={38}
+                        color={C.g600}
+                        style={s.previewIcon}
+                      />
+                      <View style={s.previewInfo}>
+                        <Text style={s.previewNome}>{nome || 'Nome do pet'}</Text>
+                        <Text style={s.previewSub}>{raca || 'Raça'} • {peso ? `${peso} kg` : 'Peso'}</Text>
+                        <Text style={s.previewSub}>
+                          {dataNascimento.length === 10 ? `Nasc: ${dataNascimento}` : 'Data de nascimento'}
+                        </Text>
+                      </View>
                     </View>
-                  </View>
 
-                  {/* Campos em grid */}
-                  <View style={s.fr}>
-                    <Campo label="Nome *" value={nome} onChangeText={setNome} placeholder="Buddy" erro={erros.nome} />
-                    <Campo label="Raça *" value={raca} onChangeText={setRaca} placeholder="Golden Retriever" erro={erros.raca} />
-                  </View>
+                    {/* Espécie */}
+                    <View style={s.fg}>
+                      <Text style={s.fl}>Espécie *</Text>
+                      <View style={s.especieRow}>
+                        {ESPECIES.map(esp => (
+                          <Pressable
+                            key={esp.valor}
+                            style={[s.especieBtn, especie === esp.valor && s.especieBtnAtivo]}
+                            onPress={() => setEspecie(esp.valor as Pet['especie'])}
+                          >
+                            <AppIcon
+                              name={esp.icon}
+                              set={esp.iconSet}
+                              size={20}
+                              color={especie === esp.valor ? C.white : C.muted}
+                            />
+                            <Text style={[s.especieLabel, especie === esp.valor && s.especieLabelAtivo]}>
+                              {esp.label}
+                            </Text>
+                          </Pressable>
+                        ))}
+                      </View>
+                    </View>
 
-                  <View style={s.fr}>
-                    <Campo
-                      label="Nascimento *"
-                      value={dataNascimento}
-                      onChangeText={(v: string) => setDataNascimento(formatarData(v))}
-                      placeholder="DD/MM/AAAA"
-                      keyboardType="numeric"
-                      maxLength={10}
-                      erro={erros.dataNascimento}
-                    />
-                    <Campo
-                      label="Peso (kg) *"
-                      value={peso}
-                      onChangeText={setPeso}
-                      placeholder="5.0"
-                      keyboardType="decimal-pad"
-                      erro={erros.peso}
-                    />
-                  </View>
+                    {/* Campos em grid */}
+                    <View style={s.fr}>
+                      <Campo label="Nome *" value={nome} onChangeText={setNome} placeholder="Buddy" erro={erros.nome} />
+                      <Campo label="Raça *" value={raca} onChangeText={setRaca} placeholder="Golden Retriever" erro={erros.raca} />
+                    </View>
 
-                  <Pressable
-                    style={[s.btnAuth, salvando && { opacity: 0.6 }]}
-                    onPress={handleSalvarPet}
-                    disabled={salvando}
-                  >
-                    <Text style={s.btnAuthText}>
-                      {salvando ? 'Salvando...' : 'Finalizar cadastro →'}
-                    </Text>
-                  </Pressable>
-                </>
-              )}
-            </View>
-          ) : (
-            <View style={s.authForm}>
+                    <View style={s.fr}>
+                      <Campo
+                        label="Nascimento *"
+                        value={dataNascimento}
+                        onChangeText={(v: string) => setDataNascimento(formatarData(v))}
+                        placeholder="DD/MM/AAAA"
+                        keyboardType="numeric"
+                        maxLength={10}
+                        erro={erros.dataNascimento}
+                      />
+                      <Campo
+                        label="Peso (kg) *"
+                        value={peso}
+                        onChangeText={setPeso}
+                        placeholder="5.0"
+                        keyboardType="decimal-pad"
+                        erro={erros.peso}
+                      />
+                    </View>
 
-              <View style={s.loginIntro}>
-                <AppIcon name="lock-closed-outline" set="Ionicons" size={22} color={C.g600} />
-                <Text style={s.loginIntroText}>
-                  Entre com sua conta para acessar os pets já cadastrados.
-                </Text>
+                    <Pressable
+                      style={[s.btnAuth, salvando && { opacity: 0.6 }]}
+                      onPress={handleSalvarPet}
+                      disabled={salvando}
+                    >
+                      <Text style={s.btnAuthText}>
+                        {salvando ? 'Salvando...' : 'Finalizar cadastro →'}
+                      </Text>
+                    </Pressable>
+                  </>
+                )}
               </View>
+            ) : (
+              <View style={s.authForm}>
 
-              <Campo
-                label="E-mail *"
-                value={email}
-                onChangeText={setEmail}
-                placeholder="voce@email.com"
-                keyboardType="email-address"
-                erro={errosConta.email}
-              />
+                <View style={s.loginIntro}>
+                  <AppIcon name="lock-closed-outline" set="Ionicons" size={22} color={C.g600} />
+                  <Text style={s.loginIntroText}>
+                    Entre com sua conta para acessar os pets já cadastrados.
+                  </Text>
+                </View>
 
-              <Campo
-                label="Senha *"
-                value={senha}
-                onChangeText={setSenha}
-                placeholder="••••••••"
-                secureTextEntry
-                erro={errosConta.senha}
-              />
+                <Campo
+                  label="E-mail *"
+                  value={email}
+                  onChangeText={setEmail}
+                  placeholder="voce@email.com"
+                  keyboardType="email-address"
+                  erro={errosConta.email}
+                />
 
-              <Pressable style={s.btnAuth} onPress={handleEntrar}>
-                <Text style={s.btnAuthText}>Entrar →</Text>
-              </Pressable>
+                <Campo
+                  label="Senha *"
+                  value={senha}
+                  onChangeText={setSenha}
+                  placeholder="••••••••"
+                  secureTextEntry
+                  erro={errosConta.senha}
+                />
 
-              <Text style={s.loginNota}>
-                Login por conta chegará em uma próxima atualização.
-              </Text>
-
-            </View>
-          )}
+                <Pressable style={s.btnAuth} onPress={handleEntrar}>
+                  <Text style={s.btnAuthText}>Entrar →</Text>
+                </Pressable>
+              </View>
+            )}
+          </Animated.View>
         </View>
-
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -376,15 +434,24 @@ const s = StyleSheet.create({
   authName: { fontSize: 26, fontWeight: '700', color: C.white, letterSpacing: -0.5, marginBottom: 4 },
   authSub: { fontSize: 12, color: C.g200 },
 
-  authTabs: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: C.border },
+  authTabs: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: C.border,
+    position: 'relative',
+  },
   authTab: {
     flex: 1,
     padding: 14,
     alignItems: 'center',
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
   },
-  authTabAtiva: { borderBottomColor: C.g500 },
+  authTabIndicator: {
+    position: 'absolute',
+    bottom: -1,
+    left: 0,
+    height: 2,
+    backgroundColor: C.g500,
+  },
   authTabText: { fontSize: 13, fontWeight: '600', color: C.g600 },
   authTabTextInativa: { color: C.muted },
 
