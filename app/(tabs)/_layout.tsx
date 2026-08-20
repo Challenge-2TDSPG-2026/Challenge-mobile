@@ -24,7 +24,7 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: 'Início',
-          headerTitle: 'PetCare',
+          headerTitle: 'VetSync',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home" size={size} color={color} />
           ),
