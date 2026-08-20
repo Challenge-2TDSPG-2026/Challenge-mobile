@@ -372,10 +372,16 @@ export default function OnboardingScreen() {
                 <Pressable style={s.btnAuth} onPress={handleEntrar}>
                   <Text style={s.btnAuthText}>Entrar →</Text>
                 </Pressable>
+
+                <Text style={s.loginNota}>
+                  Login por conta chegará em uma próxima atualização.
+                </Text>
+
               </View>
             )}
           </Animated.View>
         </View>
+
       </ScrollView>
     </KeyboardAvoidingView>
   );
