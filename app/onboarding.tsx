@@ -42,13 +42,13 @@ export default function OnboardingScreen() {
     Animated.timing(contentAnim, {
       toValue: 0,
       duration: 130,
-      useNativeDriver: true,
+      useNativeDriver: false, // no web, o native driver falha silenciosamente em produção
     }).start(() => {
       atualizarEstado();
       Animated.timing(contentAnim, {
         toValue: 1,
         duration: 220,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }).start();
     });
   }
@@ -131,7 +131,7 @@ export default function OnboardingScreen() {
     });
     Animated.spring(indicatorAnim, {
       toValue: novaAba === 'cadastrar' ? 0 : 1,
-      useNativeDriver: true,
+      useNativeDriver: false,
       friction: 8,
       tension: 60,
     }).start();
