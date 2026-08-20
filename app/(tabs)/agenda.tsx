@@ -1,10 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, FlatList } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { usePet } from '../../context/PetContext';
-import { CORES, TIPOS_EVENTO } from '../../constants';
+import { TIPOS_EVENTO } from '../../constants';
 import { AppIcon } from '../../components/AppIcon';
+import { Calendario, dateKey } from '../../components/Calendario';
 import type { Evento } from '../../types';
 
 const C = {
@@ -41,23 +42,56 @@ function statusAtualizado(e: Evento): Evento['status'] {
   return d < hoje ? 'atrasado' : 'pendente';
 }
 
-function formatarData(iso: string): string {
-  return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+function formatarDataLonga(d: Date): string {
+  return d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
+}
+
+function formatarHora(iso: string): string {
+  return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }
 
 export default function AgendaScreen() {
   const router = useRouter();
-  const { eventos, concluirEvento, removerEvento } = usePet();
+  const { pet, eventos, concluirEvento, removerEvento } = usePet();
   const [filtro, setFiltro] = useState<Filtro>('todos');
+  const [mesRef, setMesRef] = useState(() => new Date());
+  const [selecionado, setSelecionado] = useState(() => new Date());
 
   const eventosComStatus = useMemo(() => eventos.map(e => ({ ...e, status: statusAtualizado(e) })), [eventos]);
 
   const eventosFiltrados = useMemo(() => {
-    let lista = eventosComStatus;
-    if (filtro === 'atrasado') lista = lista.filter(e => e.status === 'atrasado');
-    else if (filtro !== 'todos') lista = lista.filter(e => e.tipo === filtro);
-    return lista.sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
+    if (filtro === 'atrasado') return eventosComStatus.filter(e => e.status === 'atrasado');
+    if (filtro !== 'todos') return eventosComStatus.filter(e => e.tipo === filtro);
+    return eventosComStatus;
   }, [eventosComStatus, filtro]);
+
+  // dateKey -> cores dos pontinhos no calendário
+  const marcadores = useMemo(() => {
+    const mapa: Record<string, string[]> = {};
+    for (const e of eventosFiltrados) {
+      const chave = dateKey(new Date(e.data));
+      const t = TIPOS_EVENTO.find(x => x.valor === e.tipo);
+      const cor = t?.cor ?? C.g500;
+      if (!mapa[chave]) mapa[chave] = [];
+      if (!mapa[chave].includes(cor)) mapa[chave].push(cor);
+    }
+    return mapa;
+  }, [eventosFiltrados]);
+
+  const eventosDoDia = useMemo(() => {
+    const chaveSelecionada = dateKey(selecionado);
+    return eventosFiltrados
+      .filter(e => dateKey(new Date(e.data)) === chaveSelecionada)
+      .sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
+  }, [eventosFiltrados, selecionado]);
+
+  function handleMudarMes(offset: number) {
+    setMesRef(atual => {
+      const novo = new Date(atual.getFullYear(), atual.getMonth() + offset, 1);
+      setSelecionado(novo);
+      return novo;
+    });
+  }
 
   return (
     <View style={s.container}>
@@ -87,64 +121,91 @@ export default function AgendaScreen() {
         ))}
       </ScrollView>
 
-      {/* Lista */}
-      <FlatList
-        data={eventosFiltrados}
-        keyExtractor={item => item.id}
-        contentContainerStyle={s.lista}
-        renderItem={({ item }) => {
-          const t = TIPOS_EVENTO.find(x => x.valor === item.tipo);
-          const sb = STATUS_BADGE[item.status];
-          return (
-            <View style={s.card}>
-              {/* Linha principal */}
-              <View style={s.cardRow}>
-                <View style={[s.eventoIcone, { backgroundColor: t?.cor ?? C.g500 }]}>
-                  <AppIcon name={t?.icon ?? 'document-text-outline'} set={t?.iconSet ?? 'Ionicons'} size={18} color={C.white} />
-                </View>
-                <View style={s.eventoInfo}>
-                  <Text style={s.eventoTitulo}>{item.titulo}</Text>
-                  <Text style={s.eventoData}>{formatarData(item.data)}</Text>
-                </View>
-              </View>
+      <ScrollView contentContainerStyle={s.scrollContent}>
 
-              {/* Badges + ações */}
-              <View style={s.cardFooter}>
-                <View style={s.badges}>
-                  <View style={[s.badge, { backgroundColor: (t?.cor ?? C.g500) + '22' }]}>
-                    <Text style={[s.badgeText, { color: t?.cor ?? C.g500 }]}>{t?.label}</Text>
-                  </View>
-                  <View style={[s.badge, { backgroundColor: sb.bg }]}>
-                    <Text style={[s.badgeText, { color: sb.color }]}>{sb.label}</Text>
-                  </View>
-                </View>
-                <View style={s.acoes}>
-                  {item.status !== 'concluido' && (
-                    <Pressable style={s.btnAcao} onPress={() => concluirEvento(item.id)}>
-                      <Ionicons name="checkmark" size={14} color={C.g600} />
-                      <Text style={[s.btnAcaoText, { color: C.g600 }]}>Ok</Text>
-                    </Pressable>
-                  )}
-                  <Pressable
-                    style={[s.btnAcao, s.btnAcaoDanger]}
-                    onPress={() => removerEvento(item.id)}
-                  >
-                    <Ionicons name="trash-outline" size={14} color={C.danger} />
-                    <Text style={[s.btnAcaoText, { color: C.danger }]}>Remover</Text>
-                  </Pressable>
-                </View>
-              </View>
+        {/* Calendário */}
+        <Calendario
+          mesRef={mesRef}
+          selecionado={selecionado}
+          marcadores={marcadores}
+          onSelecionar={setSelecionado}
+          onMudarMes={handleMudarMes}
+        />
+
+        {/* Cabeçalho do dia selecionado */}
+        <View style={s.diaHeader}>
+          <Text style={s.diaHeaderTexto}>{formatarDataLonga(selecionado)}</Text>
+          {eventosDoDia.length > 0 && (
+            <View style={s.diaHeaderBadge}>
+              <Text style={s.diaHeaderBadgeText}>{eventosDoDia.length}</Text>
             </View>
-          );
-        }}
-        ListEmptyComponent={
+          )}
+        </View>
+
+        {/* Lista do dia */}
+        {eventosDoDia.length === 0 ? (
           <View style={s.empty}>
             <AppIcon name="calendar-outline" set="Ionicons" size={40} color={C.muted} style={s.emptyIcon} />
-            <Text style={s.emptyTitle}>Nenhum evento encontrado</Text>
-            <Text style={s.emptySub}>Tente outro filtro ou adicione um novo evento</Text>
+            <Text style={s.emptyTitle}>Nenhum exame nesse dia</Text>
+            <Text style={s.emptySub}>Toque em outra data ou adicione um novo evento</Text>
           </View>
-        }
-      />
+        ) : (
+          eventosDoDia.map(item => {
+            const t = TIPOS_EVENTO.find(x => x.valor === item.tipo);
+            const sb = STATUS_BADGE[item.status];
+            return (
+              <View key={item.id} style={s.card}>
+                <View style={s.cardRow}>
+                  <View style={[s.eventoIcone, { backgroundColor: t?.cor ?? C.g500 }]}>
+                    <AppIcon name={t?.icon ?? 'document-text-outline'} set={t?.iconSet ?? 'Ionicons'} size={18} color={C.white} />
+                  </View>
+                  <View style={s.eventoInfo}>
+                    <Text style={s.eventoTitulo}>{item.titulo}</Text>
+                    <View style={s.eventoMetaRow}>
+                      <AppIcon name="time-outline" set="Ionicons" size={11} color={C.muted} />
+                      <Text style={s.eventoMeta}>{formatarHora(item.data)}</Text>
+                      <Text style={s.eventoMetaDot}>•</Text>
+                      <AppIcon
+                        name={pet ? 'paw' : 'help-outline'}
+                        set="MaterialCommunityIcons"
+                        size={11}
+                        color={C.muted}
+                      />
+                      <Text style={s.eventoMeta}>{pet?.nome ?? 'Pet não identificado'}</Text>
+                    </View>
+                  </View>
+                </View>
+
+                <View style={s.cardFooter}>
+                  <View style={s.badges}>
+                    <View style={[s.badge, { backgroundColor: (t?.cor ?? C.g500) + '22' }]}>
+                      <Text style={[s.badgeText, { color: t?.cor ?? C.g500 }]}>{t?.label}</Text>
+                    </View>
+                    <View style={[s.badge, { backgroundColor: sb.bg }]}>
+                      <Text style={[s.badgeText, { color: sb.color }]}>{sb.label}</Text>
+                    </View>
+                  </View>
+                  <View style={s.acoes}>
+                    {item.status !== 'concluido' && (
+                      <Pressable style={s.btnAcao} onPress={() => concluirEvento(item.id)}>
+                        <Ionicons name="checkmark" size={14} color={C.g600} />
+                        <Text style={[s.btnAcaoText, { color: C.g600 }]}>Ok</Text>
+                      </Pressable>
+                    )}
+                    <Pressable
+                      style={[s.btnAcao, s.btnAcaoDanger]}
+                      onPress={() => removerEvento(item.id)}
+                    >
+                      <Ionicons name="trash-outline" size={14} color={C.danger} />
+                      <Text style={[s.btnAcaoText, { color: C.danger }]}>Remover</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              </View>
+            );
+          })
+        )}
+      </ScrollView>
 
       {/* FAB */}
       <Pressable style={s.fab} onPress={() => router.push('/add-evento')}>
@@ -173,7 +234,18 @@ const s = StyleSheet.create({
   filtroText: { fontSize: 12, fontWeight: '600', color: C.text },
   filtroTextAtivo: { color: C.white },
 
-  lista: { padding: 16, paddingBottom: 96, gap: 10 },
+  scrollContent: { padding: 16, paddingBottom: 96 },
+
+  diaHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginBottom: 12, paddingHorizontal: 2,
+  },
+  diaHeaderTexto: { fontSize: 14, fontWeight: '700', color: C.text, textTransform: 'capitalize', flex: 1 },
+  diaHeaderBadge: {
+    backgroundColor: C.g100, borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2,
+    borderWidth: 1, borderColor: C.g200,
+  },
+  diaHeaderBadgeText: { fontSize: 11, fontWeight: '700', color: C.g700 },
 
   card: {
     backgroundColor: C.white,
@@ -181,6 +253,7 @@ const s = StyleSheet.create({
     borderColor: C.border,
     borderRadius: 12,
     overflow: 'hidden',
+    marginBottom: 10,
   },
   cardRow: {
     flexDirection: 'row',
@@ -193,7 +266,9 @@ const s = StyleSheet.create({
   eventoIcone: { width: 42, height: 42, borderRadius: 21, justifyContent: 'center', alignItems: 'center' },
   eventoInfo: { flex: 1 },
   eventoTitulo: { fontSize: 14, fontWeight: '600', color: C.text },
-  eventoData: { fontSize: 12, color: C.muted, marginTop: 2 },
+  eventoMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 },
+  eventoMeta: { fontSize: 11, color: C.muted },
+  eventoMetaDot: { fontSize: 11, color: C.muted, marginHorizontal: 2 },
 
   cardFooter: {
     flexDirection: 'row',
@@ -221,7 +296,7 @@ const s = StyleSheet.create({
   btnAcaoDanger: { backgroundColor: '#fff5f5', borderColor: '#fecaca' },
   btnAcaoText: { fontSize: 12, fontWeight: '600' },
 
-  empty: { alignItems: 'center', paddingVertical: 64 },
+  empty: { alignItems: 'center', paddingVertical: 48 },
   emptyIcon: { marginBottom: 12 },
   emptyTitle: { fontSize: 15, fontWeight: '700', color: C.text, marginBottom: 4 },
   emptySub: { fontSize: 13, color: C.muted, textAlign: 'center' },
