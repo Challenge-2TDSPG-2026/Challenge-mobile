@@ -1,13 +1,18 @@
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import {
   View, Text, TextInput, ScrollView, Pressable,
-  StyleSheet, KeyboardAvoidingView, Platform, Alert, Animated,
+  StyleSheet, KeyboardAvoidingView, Platform, Alert,
+  LayoutAnimation, UIManager,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ESPECIES } from '../constants';
 import { usePet } from '../context/PetContext';
 import { AppIcon } from '../components/AppIcon';
 import type { Pet } from '../types';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 const C = {
   g900: '#0a2218', g800: '#0e3326', g700: '#155c3f', g600: '#1a7a52',
@@ -19,6 +24,23 @@ const C = {
 
 type Aba = 'cadastrar' | 'entrar';
 type EtapaCadastro = 'conta' | 'pet';
+
+// CSS puro pra web — o próprio navegador anima, sem JS calculando frames
+const transicaoWeb = Platform.OS === 'web'
+  ? ({
+    transitionProperty: 'opacity, transform',
+    transitionDuration: '220ms',
+    transitionTimingFunction: 'ease',
+  } as any)
+  : {};
+
+const transicaoIndicadorWeb = Platform.OS === 'web'
+  ? ({
+    transitionProperty: 'transform',
+    transitionDuration: '250ms',
+    transitionTimingFunction: 'ease',
+  } as any)
+  : {};
 
 function formatarData(text: string): string {
   const n = text.replace(/\D/g, '');
@@ -33,24 +55,22 @@ export default function OnboardingScreen() {
   const [aba, setAba] = useState<Aba>('cadastrar');
   const [etapaCadastro, setEtapaCadastro] = useState<EtapaCadastro>('conta');
 
-  // --- Animações ---
-  const contentAnim = useRef(new Animated.Value(1)).current;
-  const indicatorAnim = useRef(new Animated.Value(0)).current; // 0 = cadastrar, 1 = entrar
+  // --- Estado de transição (sem Animated) ---
+  const [conteudoVisivel, setConteudoVisivel] = useState(true);
   const [tabsWidth, setTabsWidth] = useState(0);
 
   function trocarConteudo(atualizarEstado: () => void) {
-    Animated.timing(contentAnim, {
-      toValue: 0,
-      duration: 130,
-      useNativeDriver: false, // no web, o native driver falha silenciosamente em produção
-    }).start(() => {
+    if (Platform.OS === 'web') {
+      setConteudoVisivel(false);
+      setTimeout(() => {
+        atualizarEstado();
+        // pequeno delay pra CSS pegar a troca de opacity de volta pra 1 e animar
+        requestAnimationFrame(() => setConteudoVisivel(true));
+      }, 130);
+    } else {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       atualizarEstado();
-      Animated.timing(contentAnim, {
-        toValue: 1,
-        duration: 220,
-        useNativeDriver: false,
-      }).start();
-    });
+    }
   }
 
   // --- Conta (usado no Cadastro, passo 1, e no Login) ---
@@ -129,25 +149,11 @@ export default function OnboardingScreen() {
       setEtapaCadastro('conta');
       setErrosConta({});
     });
-    Animated.spring(indicatorAnim, {
-      toValue: novaAba === 'cadastrar' ? 0 : 1,
-      useNativeDriver: false,
-      friction: 8,
-      tension: 60,
-    }).start();
   }
 
   const especieInfo = ESPECIES.find(e => e.valor === especie);
 
-  const contentTranslateY = contentAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [10, 0],
-  });
-
-  const indicatorTranslateX = indicatorAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, tabsWidth / 2],
-  });
+  const indicatorTranslateX = tabsWidth > 0 && aba === 'entrar' ? tabsWidth / 2 : 0;
 
   return (
     <KeyboardAvoidingView
@@ -189,23 +195,24 @@ export default function OnboardingScreen() {
             </Pressable>
 
             {tabsWidth > 0 && (
-              <Animated.View
+              <View
                 style={[
                   s.authTabIndicator,
-                  {
-                    width: tabsWidth / 2,
-                    transform: [{ translateX: indicatorTranslateX }],
-                  },
+                  { width: tabsWidth / 2, transform: [{ translateX: indicatorTranslateX }] },
+                  transicaoIndicadorWeb,
                 ]}
               />
             )}
           </View>
 
-          <Animated.View
-            style={{
-              opacity: contentAnim,
-              transform: [{ translateY: contentTranslateY }],
-            }}
+          <View
+            style={[
+              {
+                opacity: conteudoVisivel ? 1 : 0,
+                transform: [{ translateY: conteudoVisivel ? 0 : 10 }],
+              },
+              transicaoWeb,
+            ]}
           >
             {aba === 'cadastrar' ? (
               <View style={s.authForm}>
@@ -379,7 +386,7 @@ export default function OnboardingScreen() {
 
               </View>
             )}
-          </Animated.View>
+          </View>
         </View>
 
       </ScrollView>
