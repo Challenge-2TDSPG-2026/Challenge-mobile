@@ -25,7 +25,6 @@ const C = {
 type Aba = 'cadastrar' | 'entrar';
 type EtapaCadastro = 'conta' | 'pet';
 
-// CSS puro pra web — o próprio navegador anima, sem JS calculando frames
 const transicaoWeb = Platform.OS === 'web'
   ? ({
     transitionProperty: 'opacity, transform',
@@ -54,8 +53,6 @@ export default function OnboardingScreen() {
   const { salvarNovoPet } = usePet();
   const [aba, setAba] = useState<Aba>('cadastrar');
   const [etapaCadastro, setEtapaCadastro] = useState<EtapaCadastro>('conta');
-
-  // --- Estado de transição (sem Animated) ---
   const [conteudoVisivel, setConteudoVisivel] = useState(true);
   const [tabsWidth, setTabsWidth] = useState(0);
 
@@ -64,7 +61,6 @@ export default function OnboardingScreen() {
       setConteudoVisivel(false);
       setTimeout(() => {
         atualizarEstado();
-        // pequeno delay pra CSS pegar a troca de opacity de volta pra 1 e animar
         requestAnimationFrame(() => setConteudoVisivel(true));
       }, 130);
     } else {
@@ -73,12 +69,9 @@ export default function OnboardingScreen() {
     }
   }
 
-  // --- Conta (usado no Cadastro, passo 1, e no Login) ---
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [errosConta, setErrosConta] = useState<Record<string, string>>({});
-
-  // --- Dados do pet (Cadastro, passo 2) ---
   const [nome, setNome] = useState('');
   const [especie, setEspecie] = useState<Pet['especie']>('cachorro');
   const [raca, setRaca] = useState('');
@@ -97,8 +90,6 @@ export default function OnboardingScreen() {
 
   function handleContinuarConta() {
     if (!validarConta()) return;
-    // TODO: quando o backend estiver pronto, criar a conta aqui (email/senha)
-    // antes de liberar o passo de dados do pet.
     trocarConteudo(() => setEtapaCadastro('pet'));
   }
 
@@ -129,13 +120,11 @@ export default function OnboardingScreen() {
       await salvarNovoPet(pet);
       router.replace('/(tabs)');
     } catch {
-      // silent
     } finally { setSalvando(false); }
   }
 
   function handleEntrar() {
     if (!validarConta()) return;
-    // TODO: substituir por chamada real de autenticação quando o backend estiver pronto
     Alert.alert(
       'Login em breve',
       'O login com conta ainda não está disponível — o backend será integrado em uma próxima sprint.'
