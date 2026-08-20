@@ -163,8 +163,8 @@ export default function OnboardingScreen() {
             <View style={s.authLogo}>
               <AppIcon name="paw" set="MaterialCommunityIcons" size={26} color={C.white} />
             </View>
-            <Text style={s.authName}>ClyvoVet</Text>
-            <Text style={s.authSub}>Plataforma de Saúde Animal</Text>
+            <Text style={s.authName}>VetSync</Text>
+            <Text style={s.authSub}>Plataforma gerenciamento animal</Text>
           </View>
 
           {/* Tab bar — Cadastrar / Entrar */}
