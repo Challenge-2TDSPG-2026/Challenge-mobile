@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, ScrollView, Pressable,
-  StyleSheet, KeyboardAvoidingView, Platform,
+  StyleSheet, KeyboardAvoidingView, Platform, Switch, Alert,
 } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
 import { usePet } from '../context/PetContext';
 import { TIPOS_EVENTO, SUGESTOES_TITULO } from '../constants';
 import { AppIcon } from '.././components/AppIcon';
 import type { Evento } from '../types';
+import { adicionarEventoAoCalendario, agendarLembretes } from '../services/calendarService';
 
 const C = {
   g900: '#0a2218', g800: '#0e3326', g700: '#155c3f', g600: '#1a7a52',
@@ -33,6 +34,8 @@ export default function AddEventoScreen() {
   const [descricao, setDescricao] = useState('');
   const [erros, setErros] = useState<Record<string, string>>({});
   const [salvando, setSalvando] = useState(false);
+  const [sincronizarCalendario, setSincronizarCalendario] = useState(true);
+  const [lembreteAtivo, setLembreteAtivo] = useState(true);
 
   const sugestoes = pet ? (SUGESTOES_TITULO[tipo]?.[pet.especie] ?? SUGESTOES_TITULO[tipo]?.['outro'] ?? []) : [];
 
@@ -60,7 +63,7 @@ export default function AddEventoScreen() {
     setSalvando(true);
     try {
       const iso = parsarData(data);
-      await adicionarEvento({
+      const novoEvento: Evento = {
         id: Date.now().toString(),
         petId: pet?.id ?? '',
         tipo, titulo: titulo.trim(),
@@ -68,7 +71,27 @@ export default function AddEventoScreen() {
         data: iso,
         status: statusInicial(iso),
         criadoEm: new Date().toISOString(),
-      });
+      };
+
+      if (sincronizarCalendario) {
+        try {
+          const calendarEventId = await adicionarEventoAoCalendario(novoEvento, pet);
+          if (calendarEventId) novoEvento.calendarEventId = calendarEventId;
+          else Alert.alert('Calendário', 'Permissão negada — evento salvo sem sincronizar.');
+        } catch {
+          Alert.alert('Calendário', 'Não foi possível sincronizar com o calendário.');
+        }
+      }
+
+      if (lembreteAtivo) {
+        try {
+          novoEvento.lembreteIds = await agendarLembretes(novoEvento, pet, [7, 1]);
+        } catch {
+          Alert.alert('Lembretes', 'Não foi possível agendar os lembretes.');
+        }
+      }
+
+      await adicionarEvento(novoEvento);
       router.back();
     } catch {
       // silent
@@ -202,6 +225,32 @@ export default function AddEventoScreen() {
             />
           </View>
 
+          {/* Sincronização e lembretes */}
+          <View style={s.fg}>
+            <View style={s.switchRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={s.switchLabel}>Sincronizar com calendário</Text>
+                <Text style={s.switchSub}>Cria o evento no calendário do dispositivo</Text>
+              </View>
+              <Switch
+                value={sincronizarCalendario}
+                onValueChange={setSincronizarCalendario}
+                trackColor={{ true: tipoInfo?.cor ?? C.g500 }}
+              />
+            </View>
+            <View style={s.switchRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={s.switchLabel}>Lembrete</Text>
+                <Text style={s.switchSub}>Notificação 7 dias e 1 dia antes</Text>
+              </View>
+              <Switch
+                value={lembreteAtivo}
+                onValueChange={setLembreteAtivo}
+                trackColor={{ true: tipoInfo?.cor ?? C.g500 }}
+              />
+            </View>
+          </View>
+
           {/* Footer buttons — estilo modal-foot do HTML */}
           <View style={s.modalFoot}>
             <Pressable style={s.btnCancelar} onPress={() => router.back()}>
@@ -307,6 +356,14 @@ const s = StyleSheet.create({
     backgroundColor: C.white,
   },
   sugestaoText: { fontSize: 12, fontWeight: '600' },
+
+  switchRow: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: C.white, borderWidth: 1.5, borderColor: C.border,
+    borderRadius: 10, paddingHorizontal: 14, paddingVertical: 11, marginBottom: 8,
+  },
+  switchLabel: { fontSize: 14, fontWeight: '600', color: C.text },
+  switchSub: { fontSize: 11, color: C.muted, marginTop: 2 },
 
   modalFoot: {
     flexDirection: 'row',

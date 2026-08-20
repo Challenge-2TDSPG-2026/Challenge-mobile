@@ -16,4 +16,6 @@ export interface Evento {
   data: string;
   status: 'pendente' | 'concluido' | 'atrasado';
   criadoEm: string;
+  calendarEventId?: string;
+  lembreteIds?: string[];
 }
