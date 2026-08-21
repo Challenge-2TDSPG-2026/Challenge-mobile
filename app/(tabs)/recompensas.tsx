@@ -53,7 +53,7 @@ export default function RecompensasScreen() {
         </View>
         <Text style={s.bannerTitulo}>Programa de Fidelidade</Text>
         <Text style={s.bannerSub}>
-          A cada {metaConsultas} consultas concluídas, {pet?.nome ?? 'seu pet'} ganha 1 consulta grátis
+          A cada consulta concluída, {pet?.nome ?? 'seu pet'} ganha pontos que podem ser trocados por recompensas. Quanto mais consultas, mais recompensas!
         </Text>
       </View>
 
