@@ -57,36 +57,6 @@ export default function RecompensasScreen() {
         </Text>
       </View>
 
-      {/* Progresso do ciclo atual */}
-      <View style={s.progressoCard}>
-        <View style={s.progressoHead}>
-          <Text style={s.progressoLbl}>Progresso atual</Text>
-          <Text style={s.progressoContagem}>{consultasNoCicloAtual}/{metaConsultas}</Text>
-        </View>
-        <View style={s.barraTrack}>
-          <View style={[s.barraFill, { width: `${pct}%` as any }]} />
-        </View>
-        <Text style={s.progressoHint}>
-          {faltam === 0
-            ? 'Meta atingida! Confira seu cupom abaixo 🎉'
-            : `Faltam ${faltam} consulta${faltam !== 1 ? 's' : ''} concluída${faltam !== 1 ? 's' : ''} para o próximo cupom`}
-        </Text>
-
-        {/* Selinhos de bolinhas representando cada consulta do ciclo */}
-        <View style={s.dotsRow}>
-          {Array.from({ length: metaConsultas }).map((_, i) => (
-            <View
-              key={i}
-              style={[s.dotConsulta, i < consultasNoCicloAtual && s.dotConsultaPreenchida]}
-            >
-              {i < consultasNoCicloAtual && (
-                <AppIcon name="checkmark" set="Ionicons" size={12} color={C.white} />
-              )}
-            </View>
-          ))}
-        </View>
-      </View>
-
       {/* Cupons disponíveis */}
       <Text style={s.secLabel}>Cupons disponíveis</Text>
       {recompensasDisponiveis.length === 0 ? (
