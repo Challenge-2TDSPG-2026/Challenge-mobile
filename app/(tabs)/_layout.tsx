@@ -14,7 +14,7 @@ export default function TabsLayout() {
           paddingBottom: 4,
           height: 60,
         },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
+        tabBarLabelStyle: { fontSize: 10, fontWeight: '600' },
         headerStyle: { backgroundColor: CORES.primaria },
         headerTintColor: '#fff',
         headerTitleStyle: { fontWeight: '700' },
@@ -24,7 +24,7 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: 'Início',
-          headerTitle: 'VetSync',
+          headerTitle: 'PetCare',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="home" size={size} color={color} />
           ),
@@ -47,6 +47,16 @@ export default function TabsLayout() {
           headerTitle: 'Histórico Clínico',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="time" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="recompensas"
+        options={{
+          title: 'Recompensas',
+          headerTitle: 'Programa de Fidelidade',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="gift" size={size} color={color} />
           ),
         }}
       />

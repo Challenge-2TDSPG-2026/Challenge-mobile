@@ -16,6 +16,11 @@ export interface Evento {
   data: string;
   status: 'pendente' | 'concluido' | 'atrasado';
   criadoEm: string;
-  calendarEventId?: string;
-  lembreteIds?: string[];
+}
+
+export interface Recompensa {
+  id: string;
+  criadaEm: string;
+  resgatada: boolean;
+  resgatadaEm?: string;
 }
