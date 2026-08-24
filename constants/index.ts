@@ -19,7 +19,8 @@ export const CORES = {
 };
 
 export const STORAGE_KEYS = {
-  PET: '@petcare:pet',
+  PETS: '@petcare:pets',
+  PET_ATIVO: '@petcare:pet_ativo',
   EVENTOS: '@petcare:eventos',
   ONBOARDING_CONCLUIDO: '@petcare:onboarding',
   NOTIFICACOES: '@petcare:notificacoes',
@@ -27,10 +28,10 @@ export const STORAGE_KEYS = {
   RECOMPENSAS: '@petcare:recompensas',
 };
 
-// A cada N consultas concluídas, o tutor ganha 1 consulta grátis
+// A cada N consultas concluídas, o tutor ganha 1 consulta grátis (por pet)
 export const META_CONSULTAS_RECOMPENSA = 5;
 
-// --- Sistema de Nível/XP ---
+// --- Sistema de Nível/XP (por pet) ---
 export const XP_POR_EVENTO = 10;
 
 export const NIVEIS = [
@@ -46,13 +47,12 @@ export const NIVEIS = [
   { nivel: 10, titulo: 'Lenda do Cuidado', xpMin: 450 },
 ] as const;
 
-// --- Conquistas (badges) ---
-// Todas calculadas a partir de dados que já existem (eventos, recompensas) — nada inventado.
+// --- Conquistas (badges, por pet) ---
 export const CONQUISTAS = [
   {
     id: 'primeiro-cadastro',
     titulo: 'Primeiros Passos',
-    descricao: 'Cadastrou seu primeiro pet no ClyvoVet',
+    descricao: 'Cadastrou este pet no ClyvoVet',
     icon: 'paw',
     iconSet: 'MaterialCommunityIcons',
   },
@@ -80,7 +80,7 @@ export const CONQUISTAS = [
   {
     id: 'vacinacao-em-dia',
     titulo: 'Vacinação em Dia',
-    descricao: 'Nenhuma vacina do seu pet está atrasada',
+    descricao: 'Nenhuma vacina deste pet está atrasada',
     icon: 'shield-checkmark-outline',
     iconSet: 'Ionicons',
   },
@@ -101,7 +101,7 @@ export const CONQUISTAS = [
   {
     id: 'primeiro-resgate',
     titulo: 'Fidelidade Recompensada',
-    descricao: 'Resgatou seu primeiro cupom de consulta grátis',
+    descricao: 'Resgatou o primeiro cupom deste pet',
     icon: 'gift',
     iconSet: 'Ionicons',
   },

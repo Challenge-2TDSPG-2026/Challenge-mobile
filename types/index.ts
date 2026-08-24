@@ -20,6 +20,7 @@ export interface Evento {
 
 export interface Recompensa {
   id: string;
+  petId: string;
   criadaEm: string;
   resgatada: boolean;
   resgatadaEm?: string;
