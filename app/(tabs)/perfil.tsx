@@ -1,9 +1,10 @@
 import React, { useMemo } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, Switch } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet, Switch, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { usePet } from '../../context/PetContext';
 import { ESPECIES } from '../../constants';
+import { AppIcon } from '../../components/AppIcon';
 import type { Evento } from '../../types';
 
 const C = {
@@ -23,32 +24,68 @@ function statusAtualizado(e: Evento): Evento['status'] {
 
 export default function PerfilScreen() {
   const router = useRouter();
-  const { pet, eventos, preferencias, atualizarPreferencias, resetar } = usePet();
+  const {
+    pets,
+    petAtivo,
+    petAtivoId,
+    selecionarPet,
+    removerPet,
+    eventos,
+    preferencias,
+    atualizarPreferencias,
+    resetar,
+  } = usePet();
 
   const eventosComStatus = useMemo(() => eventos.map(e => ({ ...e, status: statusAtualizado(e) })), [eventos]);
   const total = eventosComStatus.length;
   const concluidos = eventosComStatus.filter(e => e.status === 'concluido').length;
   const pendentes = eventosComStatus.filter(e => e.status === 'pendente').length;
   const atrasados = eventosComStatus.filter(e => e.status === 'atrasado').length;
-  const especieInfo = ESPECIES.find(e => e.valor === pet?.especie);
+  const especieInfo = ESPECIES.find(e => e.valor === petAtivo?.especie);
 
   function handleResetar() {
-    resetar().then(() => router.replace('/onboarding'));
+    Alert.alert(
+      'Resetar todos os dados?',
+      'Isso apaga todos os pets, eventos e recompensas cadastrados. Essa ação não pode ser desfeita.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Resetar',
+          style: 'destructive',
+          onPress: () => resetar().then(() => router.replace('/onboarding')),
+        },
+      ]
+    );
   }
 
-  const iniciais = pet?.nome ? pet.nome[0].toUpperCase() : '?';
+  function handleRemoverPet(id: string, nome: string) {
+    if (pets.length <= 1) {
+      Alert.alert('Não é possível remover', 'Você precisa ter pelo menos 1 pet cadastrado.');
+      return;
+    }
+    Alert.alert(
+      `Remover ${nome}?`,
+      'Os eventos de saúde e recompensas desse pet também serão perdidos.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Remover', style: 'destructive', onPress: () => removerPet(id) },
+      ]
+    );
+  }
+
+  const iniciais = petAtivo?.nome ? petAtivo.nome[0].toUpperCase() : '?';
 
   return (
     <ScrollView style={s.container} contentContainerStyle={s.content}>
 
-      {/* Banner do usuário — estilo sidebar do HTML */}
+      {/* Banner do usuário */}
       <View style={s.banner}>
         <View style={s.avatar}>
           <Text style={s.avatarText}>{iniciais}</Text>
         </View>
         <View style={s.bannerInfo}>
-          <Text style={s.bannerNome}>{pet?.nome ?? '–'}</Text>
-          <Text style={s.bannerRole}>{especieInfo?.label ?? '–'}{pet?.raca ? ` • ${pet.raca}` : ''}</Text>
+          <Text style={s.bannerNome}>{petAtivo?.nome ?? '–'}</Text>
+          <Text style={s.bannerRole}>{especieInfo?.label ?? '–'}{petAtivo?.raca ? ` • ${petAtivo.raca}` : ''}</Text>
         </View>
         <View style={s.bannerStat}>
           <Text style={s.bannerStatVal}>{total}</Text>
@@ -64,14 +101,62 @@ export default function PerfilScreen() {
         <StatCard valor={atrasados} label="Atrasados" accentColor={C.danger} />
       </View>
 
-      {/* Dados do pet */}
+      {/* Meus Pets */}
+      <View style={s.secLabelRow}>
+        <Text style={s.secLabel}>Meus Pets</Text>
+        <Text style={s.secLabelContagem}>{pets.length}</Text>
+      </View>
+      <View style={s.card}>
+        {pets.map((p, i) => {
+          const info = ESPECIES.find(e => e.valor === p.especie);
+          const ativo = p.id === petAtivoId;
+          return (
+            <View key={p.id}>
+              <Pressable style={s.petRow} onPress={() => selecionarPet(p.id)}>
+                <View style={[s.petRowAvatar, ativo && s.petRowAvatarAtivo]}>
+                  <AppIcon
+                    name={info?.icon ?? 'paw'}
+                    set={info?.iconSet ?? 'MaterialCommunityIcons'}
+                    size={18}
+                    color={ativo ? C.white : C.muted}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.petRowNome}>{p.nome}</Text>
+                  <Text style={s.petRowDetalhe}>{info?.label}{p.raca ? ` • ${p.raca}` : ''}</Text>
+                </View>
+                {ativo && (
+                  <View style={s.petRowBadge}>
+                    <Text style={s.petRowBadgeText}>Ativo</Text>
+                  </View>
+                )}
+                <Pressable
+                  style={s.petRowRemover}
+                  onPress={() => handleRemoverPet(p.id, p.nome)}
+                  hitSlop={8}
+                >
+                  <Ionicons name="trash-outline" size={16} color={C.danger} />
+                </Pressable>
+              </Pressable>
+              {i < pets.length - 1 && <View style={s.divisor} />}
+            </View>
+          );
+        })}
+        <View style={s.divisor} />
+        <Pressable style={s.btnAddPet} onPress={() => router.push('/add-pet')}>
+          <Ionicons name="add-circle-outline" size={18} color={C.g600} />
+          <Text style={s.btnAddPetText}>Adicionar novo pet</Text>
+        </Pressable>
+      </View>
+
+      {/* Dados do pet ativo */}
       <Text style={s.secLabel}>Dados do Pet</Text>
       <View style={s.card}>
         {[
-          ['Nome', pet?.nome ?? '–'],
+          ['Nome', petAtivo?.nome ?? '–'],
           ['Espécie', especieInfo?.label ?? '–'],
-          ['Raça', pet?.raca ?? '–'],
-          ['Peso', pet?.peso ? `${pet.peso} kg` : '–'],
+          ['Raça', petAtivo?.raca ?? '–'],
+          ['Peso', petAtivo?.peso ? `${petAtivo.peso} kg` : '–'],
         ].map(([label, valor], i, arr) => (
           <View key={label}>
             <View style={s.infoRow}>
@@ -106,6 +191,25 @@ export default function PerfilScreen() {
           valor={preferencias.lembreteAntes ?? true}
           onToggle={v => atualizarPreferencias({ ...preferencias, lembreteAntes: v })}
         />
+      </View>
+
+      {/* Sobre */}
+      <Text style={s.secLabel}>Sobre</Text>
+      <View style={s.card}>
+        {[
+          ['Aplicativo', 'ClyvoVet'],
+          ['Versão', '1.0.0'],
+          ['Desafio', 'FIAP Challenge 2026'],
+          ['Expo SDK', '~55.0.0'],
+        ].map(([label, valor], i, arr) => (
+          <View key={label}>
+            <View style={s.infoRow}>
+              <Text style={s.infoLabel}>{label}</Text>
+              <Text style={s.infoValor}>{valor}</Text>
+            </View>
+            {i < arr.length - 1 && <View style={s.divisor} />}
+          </View>
+        ))}
       </View>
 
       {/* Resetar */}
@@ -196,6 +300,8 @@ const s = StyleSheet.create({
     marginTop: 4,
     paddingLeft: 2,
   },
+  secLabelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingRight: 2 },
+  secLabelContagem: { fontSize: 11, fontWeight: '700', color: C.g600, marginBottom: 10 },
 
   card: {
     backgroundColor: C.white,
@@ -214,6 +320,25 @@ const s = StyleSheet.create({
   prefInfo: { flex: 1 },
   prefLabel: { fontSize: 14, fontWeight: '600', color: C.text },
   prefDesc: { fontSize: 12, color: C.muted, marginTop: 2 },
+
+  petRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, gap: 10 },
+  petRowAvatar: {
+    width: 34, height: 34, borderRadius: 17,
+    backgroundColor: C.w50, justifyContent: 'center', alignItems: 'center',
+    borderWidth: 1, borderColor: C.border,
+  },
+  petRowAvatarAtivo: { backgroundColor: C.g600, borderColor: C.g600 },
+  petRowNome: { fontSize: 14, fontWeight: '700', color: C.text },
+  petRowDetalhe: { fontSize: 11, color: C.muted, marginTop: 2 },
+  petRowBadge: { backgroundColor: C.g100, borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3, marginRight: 6 },
+  petRowBadgeText: { fontSize: 10, fontWeight: '700', color: C.g700 },
+  petRowRemover: { padding: 4 },
+
+  btnAddPet: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 14,
+  },
+  btnAddPetText: { fontSize: 13, fontWeight: '700', color: C.g600 },
 
   btnResetar: {
     backgroundColor: C.danger,

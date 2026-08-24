@@ -3,8 +3,9 @@ import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { usePet } from '../../context/PetContext';
-import { CORES, ESPECIES, TIPOS_EVENTO } from '../../constants';
+import { ESPECIES, TIPOS_EVENTO } from '../../constants';
 import { AppIcon } from '../../components/AppIcon';
+import { PetSwitcher } from '../../components/PetSwitcher';
 import type { Evento } from '../../types';
 
 const C = {
@@ -44,7 +45,7 @@ const STATUS_BADGE: Record<string, { bg: string; color: string; label: string }>
 
 export default function DashboardScreen() {
   const router = useRouter();
-  const { pet, eventos } = usePet();
+  const { petAtivo, eventos } = usePet();
 
   const eventosComStatus = useMemo(() => eventos.map(e => ({ ...e, status: statusAtualizado(e) })), [eventos]);
   const pendentes = eventosComStatus.filter(e => e.status === 'pendente');
@@ -53,12 +54,14 @@ export default function DashboardScreen() {
   const proximos = [...pendentes, ...atrasados]
     .sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime())
     .slice(0, 5);
-  const especieInfo = ESPECIES.find(e => e.valor === pet?.especie);
+  const especieInfo = ESPECIES.find(e => e.valor === petAtivo?.especie);
 
-  if (!pet) return null;
+  if (!petAtivo) return null;
 
   return (
     <ScrollView style={s.container} contentContainerStyle={s.content}>
+
+      <PetSwitcher />
 
       {/* Welcome banner */}
       <View style={s.welcome}>
@@ -69,7 +72,7 @@ export default function DashboardScreen() {
           color={C.white}
         />
         <View style={s.welcomeInfo}>
-          <Text style={s.welcomeNome}>Olá, {pet.nome}!</Text>
+          <Text style={s.welcomeNome}>Olá, {petAtivo.nome}!</Text>
           <Text style={s.welcomeSub}>Gerencie a saúde do seu pet em um só lugar.</Text>
         </View>
         <Pressable style={s.welcomeBtn} onPress={() => router.push('/add-evento')}>
@@ -99,10 +102,10 @@ export default function DashboardScreen() {
             />
           </View>
           <View style={s.petInfo}>
-            <Text style={s.petNome}>{pet.nome}</Text>
-            <Text style={s.petDetalhe}>{pet.especie}{pet.raca ? ` • ${pet.raca}` : ''}</Text>
-            <Text style={s.petDetalhe}>Idade: {calcularIdade(pet.dataNascimento)}</Text>
-            <Text style={s.petDetalhe}>Peso: {pet.peso ? `${pet.peso} kg` : '—'}</Text>
+            <Text style={s.petNome}>{petAtivo.nome}</Text>
+            <Text style={s.petDetalhe}>{petAtivo.especie}{petAtivo.raca ? ` • ${petAtivo.raca}` : ''}</Text>
+            <Text style={s.petDetalhe}>Idade: {calcularIdade(petAtivo.dataNascimento)}</Text>
+            <Text style={s.petDetalhe}>Peso: {petAtivo.peso ? `${petAtivo.peso} kg` : '—'}</Text>
           </View>
           <Pressable style={s.btnProntuario} onPress={() => router.push('/(tabs)/agenda')}>
             <AppIcon name="pulse-outline" set="Ionicons" size={14} color={C.text} style={{ marginRight: 4 }} />

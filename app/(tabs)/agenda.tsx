@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { usePet } from '../../context/PetContext';
 import { TIPOS_EVENTO } from '../../constants';
 import { AppIcon } from '../../components/AppIcon';
+import { PetSwitcher } from '../../components/PetSwitcher';
 import { Calendario, dateKey } from '../../components/Calendario';
 import type { Evento } from '../../types';
 
@@ -52,7 +53,7 @@ function formatarHora(iso: string): string {
 
 export default function AgendaScreen() {
   const router = useRouter();
-  const { pet, eventos, concluirEvento, removerEvento } = usePet();
+  const { petAtivo, eventos, concluirEvento, removerEvento } = usePet();
   const [filtro, setFiltro] = useState<Filtro>('todos');
   const [mesRef, setMesRef] = useState(() => new Date());
   const [selecionado, setSelecionado] = useState(() => new Date());
@@ -65,7 +66,6 @@ export default function AgendaScreen() {
     return eventosComStatus;
   }, [eventosComStatus, filtro]);
 
-  // dateKey -> cores dos pontinhos no calendário
   const marcadores = useMemo(() => {
     const mapa: Record<string, string[]> = {};
     for (const e of eventosFiltrados) {
@@ -96,7 +96,6 @@ export default function AgendaScreen() {
   return (
     <View style={s.container}>
 
-      {/* Filtros */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -123,7 +122,8 @@ export default function AgendaScreen() {
 
       <ScrollView contentContainerStyle={s.scrollContent}>
 
-        {/* Calendário */}
+        <PetSwitcher />
+
         <Calendario
           mesRef={mesRef}
           selecionado={selecionado}
@@ -132,7 +132,6 @@ export default function AgendaScreen() {
           onMudarMes={handleMudarMes}
         />
 
-        {/* Cabeçalho do dia selecionado */}
         <View style={s.diaHeader}>
           <Text style={s.diaHeaderTexto}>{formatarDataLonga(selecionado)}</Text>
           {eventosDoDia.length > 0 && (
@@ -142,7 +141,6 @@ export default function AgendaScreen() {
           )}
         </View>
 
-        {/* Lista do dia */}
         {eventosDoDia.length === 0 ? (
           <View style={s.empty}>
             <AppIcon name="calendar-outline" set="Ionicons" size={40} color={C.muted} style={s.emptyIcon} />
@@ -166,12 +164,12 @@ export default function AgendaScreen() {
                       <Text style={s.eventoMeta}>{formatarHora(item.data)}</Text>
                       <Text style={s.eventoMetaDot}>•</Text>
                       <AppIcon
-                        name={pet ? 'paw' : 'help-outline'}
+                        name={petAtivo ? 'paw' : 'help-outline'}
                         set="MaterialCommunityIcons"
                         size={11}
                         color={C.muted}
                       />
-                      <Text style={s.eventoMeta}>{pet?.nome ?? 'Pet não identificado'}</Text>
+                      <Text style={s.eventoMeta}>{petAtivo?.nome ?? 'Pet não identificado'}</Text>
                     </View>
                   </View>
                 </View>
@@ -207,7 +205,6 @@ export default function AgendaScreen() {
         )}
       </ScrollView>
 
-      {/* FAB */}
       <Pressable style={s.fab} onPress={() => router.push('/add-evento')}>
         <Ionicons name="add" size={28} color="#fff" />
       </Pressable>

@@ -3,6 +3,7 @@ import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { usePet } from '../../context/PetContext';
 import { TIPOS_EVENTO } from '../../constants';
 import { AppIcon } from '../../components/AppIcon';
+import { PetSwitcher } from '../../components/PetSwitcher';
 import type { Evento } from '../../types';
 
 const C = {
@@ -58,14 +59,14 @@ export default function HistoricoScreen() {
   return (
     <ScrollView style={s.container} contentContainerStyle={s.content}>
 
-      {/* Stat cards row */}
+      <PetSwitcher />
+
       <View style={s.statsRow}>
         <StatCard valor={total} label="Total" accentColor={C.info} />
         <StatCard valor={concluidos} label="Realizados" accentColor={C.g500} />
         <StatCard valor={total - concluidos} label="Pendentes" accentColor={C.warn} />
       </View>
 
-      {/* Progresso card */}
       <View style={s.progressoCard}>
         <View style={s.progressoHead}>
           <View>
@@ -83,7 +84,6 @@ export default function HistoricoScreen() {
         <Text style={s.progressoHint}>{total} evento{total !== 1 ? 's' : ''} no total</Text>
       </View>
 
-      {/* Timeline */}
       {Object.keys(agrupados).length === 0 ? (
         <View style={s.empty}>
           <AppIcon name="document-text-outline" set="Ionicons" size={40} color={C.muted} style={s.emptyIcon} />
@@ -100,7 +100,6 @@ export default function HistoricoScreen() {
               </View>
             </View>
 
-            {/* Tabela */}
             <View style={s.tabelaCard}>
               <View style={s.tabelaHead}>
                 <Text style={[s.thText, { flex: 2 }]}>Evento</Text>
@@ -113,7 +112,6 @@ export default function HistoricoScreen() {
                 const isLast = idx === evts.length - 1;
                 return (
                   <View key={evento.id} style={[s.tabelaRow, !isLast && s.tabelaRowBorder]}>
-                    {/* Evento */}
                     <View style={[s.tdEvento, { flex: 2 }]}>
                       <View style={[s.rowIcone, { backgroundColor: t?.cor ?? C.g500 }]}>
                         <AppIcon name={t?.icon ?? 'document-text-outline'} set={t?.iconSet ?? 'Ionicons'} size={13} color={C.white} />
@@ -126,10 +124,8 @@ export default function HistoricoScreen() {
                       </View>
                     </View>
 
-                    {/* Data */}
                     <Text style={[s.tdData, { flex: 1 }]}>{formatarDataCurta(evento.data)}</Text>
 
-                    {/* Status */}
                     <View style={[s.tdStatus, { flex: 1 }]}>
                       <View style={[s.statusBadge, { backgroundColor: sb.bg }]}>
                         <Text style={[s.statusText, { color: sb.color }]}>{sb.label}</Text>
