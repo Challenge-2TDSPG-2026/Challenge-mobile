@@ -27,19 +27,23 @@ type EtapaCadastro = 'conta' | 'pet';
 
 const transicaoWeb = Platform.OS === 'web'
   ? ({
-    transitionProperty: 'opacity, transform',
-    transitionDuration: '220ms',
-    transitionTimingFunction: 'ease',
-  } as any)
+      transitionProperty: 'opacity, transform',
+      transitionDuration: '220ms',
+      transitionTimingFunction: 'ease',
+    } as any)
   : {};
 
 const transicaoIndicadorWeb = Platform.OS === 'web'
   ? ({
-    transitionProperty: 'transform',
-    transitionDuration: '250ms',
-    transitionTimingFunction: 'ease',
-  } as any)
+      transitionProperty: 'transform',
+      transitionDuration: '250ms',
+      transitionTimingFunction: 'ease',
+    } as any)
   : {};
+
+// ⚠️ DEV ONLY — REMOVER ANTES DA ENTREGA FINAL / QUANDO O BACKEND ESTIVER PRONTO
+const EMAIL_TESTE = 'teste@petcare.dev';
+const SENHA_TESTE = '123456';
 
 function formatarData(text: string): string {
   const n = text.replace(/\D/g, '');
@@ -50,9 +54,10 @@ function formatarData(text: string): string {
 
 export default function OnboardingScreen() {
   const router = useRouter();
-  const { salvarNovoPet } = usePet();
+  const { adicionarPet } = usePet();
   const [aba, setAba] = useState<Aba>('cadastrar');
   const [etapaCadastro, setEtapaCadastro] = useState<EtapaCadastro>('conta');
+
   const [conteudoVisivel, setConteudoVisivel] = useState(true);
   const [tabsWidth, setTabsWidth] = useState(0);
 
@@ -72,6 +77,7 @@ export default function OnboardingScreen() {
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [errosConta, setErrosConta] = useState<Record<string, string>>({});
+
   const [nome, setNome] = useState('');
   const [especie, setEspecie] = useState<Pet['especie']>('cachorro');
   const [raca, setRaca] = useState('');
@@ -90,6 +96,8 @@ export default function OnboardingScreen() {
 
   function handleContinuarConta() {
     if (!validarConta()) return;
+    // TODO: quando o backend estiver pronto, criar a conta aqui (email/senha)
+    // antes de liberar o passo de dados do pet.
     trocarConteudo(() => setEtapaCadastro('pet'));
   }
 
@@ -117,18 +125,27 @@ export default function OnboardingScreen() {
         nome: nome.trim(), especie, raca: raca.trim(),
         dataNascimento: parsarData(dataNascimento), peso: peso.trim(),
       };
-      await salvarNovoPet(pet);
+      await adicionarPet(pet);
       router.replace('/(tabs)');
     } catch {
+      // silent
     } finally { setSalvando(false); }
   }
 
   function handleEntrar() {
     if (!validarConta()) return;
+    // TODO: substituir por chamada real de autenticação quando o backend estiver pronto
     Alert.alert(
       'Login em breve',
       'O login com conta ainda não está disponível — o backend será integrado em uma próxima sprint.'
     );
+  }
+
+  // ⚠️ DEV ONLY — REMOVER ANTES DA ENTREGA FINAL / QUANDO O BACKEND ESTIVER PRONTO
+  function preencherContaTeste() {
+    setEmail(EMAIL_TESTE);
+    setSenha(SENHA_TESTE);
+    setErrosConta({});
   }
 
   function trocarAba(novaAba: Aba) {
@@ -141,7 +158,6 @@ export default function OnboardingScreen() {
   }
 
   const especieInfo = ESPECIES.find(e => e.valor === especie);
-
   const indicatorTranslateX = tabsWidth > 0 && aba === 'entrar' ? tabsWidth / 2 : 0;
 
   return (
@@ -155,19 +171,16 @@ export default function OnboardingScreen() {
         keyboardShouldPersistTaps="handled"
       >
 
-        {/* Auth card — espelho do HTML */}
         <View style={s.authCard}>
 
-          {/* Header */}
           <View style={s.authHdr}>
             <View style={s.authLogo}>
               <AppIcon name="paw" set="MaterialCommunityIcons" size={26} color={C.white} />
             </View>
-            <Text style={s.authName}>VetSync</Text>
-            <Text style={s.authSub}>Plataforma gerenciamento animal</Text>
+            <Text style={s.authName}>ClyvoVet</Text>
+            <Text style={s.authSub}>Plataforma de Saúde Animal</Text>
           </View>
 
-          {/* Tab bar — Cadastrar / Entrar */}
           <View
             style={s.authTabs}
             onLayout={e => setTabsWidth(e.nativeEvent.layout.width)}
@@ -206,7 +219,6 @@ export default function OnboardingScreen() {
             {aba === 'cadastrar' ? (
               <View style={s.authForm}>
 
-                {/* Indicador de passo */}
                 <View style={s.passos}>
                   <View style={[s.passoDot, etapaCadastro === 'conta' && s.passoDotAtivo]} />
                   <View style={s.passoLinha} />
@@ -257,7 +269,6 @@ export default function OnboardingScreen() {
                       <Text style={s.btnVoltarText}>Voltar</Text>
                     </Pressable>
 
-                    {/* Preview */}
                     <View style={s.previewCard}>
                       <AppIcon
                         name={especieInfo?.icon ?? 'paw'}
@@ -275,7 +286,6 @@ export default function OnboardingScreen() {
                       </View>
                     </View>
 
-                    {/* Espécie */}
                     <View style={s.fg}>
                       <Text style={s.fl}>Espécie *</Text>
                       <View style={s.especieRow}>
@@ -299,7 +309,6 @@ export default function OnboardingScreen() {
                       </View>
                     </View>
 
-                    {/* Campos em grid */}
                     <View style={s.fr}>
                       <Campo label="Nome *" value={nome} onChangeText={setNome} placeholder="Buddy" erro={erros.nome} />
                       <Campo label="Raça *" value={raca} onChangeText={setRaca} placeholder="Golden Retriever" erro={erros.raca} />
@@ -346,6 +355,13 @@ export default function OnboardingScreen() {
                     Entre com sua conta para acessar os pets já cadastrados.
                   </Text>
                 </View>
+
+                {__DEV__ && (
+                  <Pressable style={s.btnDev} onPress={preencherContaTeste}>
+                    <AppIcon name="flask-outline" set="Ionicons" size={14} color="#e67e22" />
+                    <Text style={s.btnDevText}>Preencher conta de teste (dev)</Text>
+                  </Pressable>
+                )}
 
                 <Campo
                   label="E-mail *"
@@ -467,6 +483,21 @@ const s = StyleSheet.create({
 
   btnVoltar: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 16, alignSelf: 'flex-start' },
   btnVoltarText: { fontSize: 12, fontWeight: '600', color: C.g600 },
+
+  btnDev: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderWidth: 1.5,
+    borderColor: '#e67e22',
+    borderStyle: 'dashed',
+    borderRadius: 10,
+    paddingVertical: 9,
+    marginBottom: 16,
+    backgroundColor: '#fff8f0',
+  },
+  btnDevText: { fontSize: 12, fontWeight: '700', color: '#e67e22' },
 
   previewCard: {
     backgroundColor: C.w50,

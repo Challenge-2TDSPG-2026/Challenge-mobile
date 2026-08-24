@@ -25,6 +25,7 @@ function RootNavigator() {
       <Stack.Screen name="onboarding" />
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="add-evento" options={{ presentation: 'modal', headerShown: false }} />
+      <Stack.Screen name="add-pet" options={{ presentation: 'modal', headerShown: false }} />
     </Stack>
   );
 }
