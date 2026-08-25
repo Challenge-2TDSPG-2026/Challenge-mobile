@@ -10,6 +10,10 @@ export interface PacienteComHistorico {
 }
 
 type VetContextValue = {
+  // --- Pets (visão global, necessária para exibir nome do pet nas telas do veterinário) ---
+  pets: Pet[];
+
+  // --- Veterinário logado ---
   veterinarios: Veterinario[];
   veterinarioAtivo: Veterinario | null;
   veterinarioAtivoId: string | null;
@@ -17,6 +21,7 @@ type VetContextValue = {
   cadastrarVeterinario: (veterinario: Veterinario) => Promise<void>;
   selecionarVeterinario: (id: string) => Promise<void>;
 
+  // --- Consultas (visão global — não escopada a um único pet) ---
   eventos: Evento[];
   eventosSolicitados: Evento[];
   eventosConfirmados: Evento[];
@@ -25,7 +30,10 @@ type VetContextValue = {
   concluirEvento: (id: string, observacoesClinicas?: string) => Promise<void>;
   cancelarEvento: (id: string, motivo: string) => Promise<void>;
 
+  // --- Pacientes ---
   pacientes: PacienteComHistorico[];
+
+  // --- Disponibilidade / bloqueios do veterinário ativo ---
   disponibilidade: FaixaDisponibilidade[];
   adicionarFaixaDisponibilidade: (faixa: FaixaDisponibilidade) => Promise<void>;
   removerFaixaDisponibilidade: (id: string) => Promise<void>;
@@ -98,6 +106,10 @@ export function VetProvider({ children }: { children: React.ReactNode }) {
     setVeterinarioAtivoId(id);
   }, []);
 
+  // ─────────────────────────────────────────────────────────
+  // Consultas — visão global do veterinário
+  // ─────────────────────────────────────────────────────────
+
   const eventosSolicitados = useMemo(
     () => eventos.filter(e => e.status === 'solicitado'),
     [eventos]
@@ -135,6 +147,10 @@ export function VetProvider({ children }: { children: React.ReactNode }) {
     setEventos(novos);
   }, [eventos]);
 
+  // ─────────────────────────────────────────────────────────
+  // Pacientes — pets com pelo menos 1 evento solicitado ou
+  // atendido por este veterinário
+  // ─────────────────────────────────────────────────────────
 
   const pacientes: PacienteComHistorico[] = useMemo(() => {
     const petIdsRelevantes = new Set(
@@ -151,6 +167,10 @@ export function VetProvider({ children }: { children: React.ReactNode }) {
           .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime()),
       }));
   }, [pets, eventos, veterinarioAtivoId]);
+
+  // ─────────────────────────────────────────────────────────
+  // Disponibilidade / bloqueios do veterinário ativo
+  // ─────────────────────────────────────────────────────────
 
   const disponibilidade = useMemo(
     () => disponibilidadeTodas.filter(f => f.veterinarioId === veterinarioAtivoId),
@@ -185,6 +205,7 @@ export function VetProvider({ children }: { children: React.ReactNode }) {
   return (
     <VetContext.Provider
       value={{
+        pets,
         veterinarios,
         veterinarioAtivo,
         veterinarioAtivoId,
