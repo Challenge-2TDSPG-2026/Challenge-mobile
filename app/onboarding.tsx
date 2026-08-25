@@ -7,6 +7,7 @@ import {
 import { useRouter } from 'expo-router';
 import { ESPECIES } from '../constants';
 import { usePet } from '../context/PetContext';
+import { authService } from '../services/authService';
 import { AppIcon } from '../components/AppIcon';
 import type { Pet } from '../types';
 
@@ -54,7 +55,7 @@ function formatarData(text: string): string {
 
 export default function OnboardingScreen() {
   const router = useRouter();
-  const { adicionarPet } = usePet();
+  const { adicionarPet, onboardingConcluido } = usePet();
   const [aba, setAba] = useState<Aba>('cadastrar');
   const [etapaCadastro, setEtapaCadastro] = useState<EtapaCadastro>('conta');
 
@@ -77,6 +78,7 @@ export default function OnboardingScreen() {
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [errosConta, setErrosConta] = useState<Record<string, string>>({});
+  const [autenticando, setAutenticando] = useState(false);
 
   const [nome, setNome] = useState('');
   const [especie, setEspecie] = useState<Pet['especie']>('cachorro');
@@ -94,11 +96,17 @@ export default function OnboardingScreen() {
     return Object.keys(e).length === 0;
   }
 
-  function handleContinuarConta() {
+  async function handleContinuarConta() {
     if (!validarConta()) return;
-    // TODO: quando o backend estiver pronto, criar a conta aqui (email/senha)
-    // antes de liberar o passo de dados do pet.
-    trocarConteudo(() => setEtapaCadastro('pet'));
+    setAutenticando(true);
+    try {
+      await authService.registrar(email, senha, 'tutor');
+      trocarConteudo(() => setEtapaCadastro('pet'));
+    } catch {
+      Alert.alert('Erro', 'Não foi possível criar sua conta. Tente novamente.');
+    } finally {
+      setAutenticando(false);
+    }
   }
 
   function validarPet(): boolean {
@@ -126,19 +134,28 @@ export default function OnboardingScreen() {
         dataNascimento: parsarData(dataNascimento), peso: peso.trim(),
       };
       await adicionarPet(pet);
-      router.replace('/(tabs)');
+      router.replace('/(tutor)');
     } catch {
       // silent
     } finally { setSalvando(false); }
   }
 
-  function handleEntrar() {
+  async function handleEntrar() {
     if (!validarConta()) return;
-    // TODO: substituir por chamada real de autenticação quando o backend estiver pronto
-    Alert.alert(
-      'Login em breve',
-      'O login com conta ainda não está disponível — o backend será integrado em uma próxima sprint.'
-    );
+    setAutenticando(true);
+    try {
+      await authService.login(email, senha, 'tutor');
+      if (!onboardingConcluido) {
+        Alert.alert(
+          'Nenhum pet encontrado',
+          'Não há pets cadastrados neste dispositivo ainda. Cadastre um pet para continuar.'
+        );
+        return;
+      }
+      router.replace('/(tutor)');
+    } finally {
+      setAutenticando(false);
+    }
   }
 
   // ⚠️ DEV ONLY — REMOVER ANTES DA ENTREGA FINAL / QUANDO O BACKEND ESTIVER PRONTO
@@ -255,8 +272,14 @@ export default function OnboardingScreen() {
                       erro={errosConta.senha}
                     />
 
-                    <Pressable style={s.btnAuth} onPress={handleContinuarConta}>
-                      <Text style={s.btnAuthText}>Continuar →</Text>
+                    <Pressable
+                      style={[s.btnAuth, autenticando && { opacity: 0.6 }]}
+                      onPress={handleContinuarConta}
+                      disabled={autenticando}
+                    >
+                      <Text style={s.btnAuthText}>
+                        {autenticando ? 'Criando conta...' : 'Continuar →'}
+                      </Text>
                     </Pressable>
                   </>
                 ) : (
@@ -381,18 +404,27 @@ export default function OnboardingScreen() {
                   erro={errosConta.senha}
                 />
 
-                <Pressable style={s.btnAuth} onPress={handleEntrar}>
-                  <Text style={s.btnAuthText}>Entrar →</Text>
+                <Pressable
+                  style={[s.btnAuth, autenticando && { opacity: 0.6 }]}
+                  onPress={handleEntrar}
+                  disabled={autenticando}
+                >
+                  <Text style={s.btnAuthText}>{autenticando ? 'Entrando...' : 'Entrar →'}</Text>
                 </Pressable>
 
                 <Text style={s.loginNota}>
-                  Login por conta chegará em uma próxima atualização.
+                  Ainda sem backend — o login valida localmente os dados deste dispositivo.
                 </Text>
 
               </View>
             )}
           </View>
         </View>
+
+        <Pressable style={s.linkVet} onPress={() => router.push('/vet-auth')}>
+          <AppIcon name="medical-bag" set="MaterialCommunityIcons" size={14} color={C.g200} />
+          <Text style={s.linkVetText}>É veterinário? Acesse o portal do veterinário</Text>
+        </Pressable>
 
       </ScrollView>
     </KeyboardAvoidingView>
@@ -575,4 +607,13 @@ const s = StyleSheet.create({
     textAlign: 'center',
     marginTop: 12,
   },
+
+  linkVet: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 20,
+  },
+  linkVetText: { fontSize: 12, fontWeight: '600', color: C.g200 },
 });
