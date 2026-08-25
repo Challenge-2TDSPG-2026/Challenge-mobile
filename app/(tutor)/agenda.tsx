@@ -1,13 +1,13 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { usePet } from '../../context/PetContext';
-import { TIPOS_EVENTO } from '../../constants';
+import { TIPOS_EVENTO, STATUS_EVENTO } from '../../constants';
 import { AppIcon } from '../../components/AppIcon';
 import { PetSwitcher } from '../../components/PetSwitcher';
 import { Calendario, dateKey } from '../../components/Calendario';
-import type { Evento } from '../../types';
+import type { Evento, StatusEventoExibicao } from '../../types';
 
 const C = {
   g900: '#0a2218', g800: '#0e3326', g700: '#155c3f', g600: '#1a7a52',
@@ -30,17 +30,16 @@ const FILTROS: { valor: Filtro; label: string; icon: string; iconSet: 'Ionicons'
   { valor: 'outro', label: 'Outro', icon: 'document-text-outline', iconSet: 'Ionicons' },
 ];
 
-const STATUS_BADGE: Record<string, { bg: string; color: string; label: string }> = {
-  pendente: { bg: '#fef3c7', color: '#92400e', label: 'Pendente' },
-  concluido: { bg: '#dcfce7', color: '#166534', label: 'Realizado' },
-  atrasado: { bg: '#fee2e2', color: '#991b1b', label: 'Atrasado' },
-};
-
-function statusAtualizado(e: Evento): Evento['status'] {
-  if (e.status === 'concluido') return 'concluido';
+/**
+ * Status de EXIBIÇÃO do evento (mesma regra usada no PetContext):
+ * 'atrasado' é calculado, nunca persistido, e só se aplica a eventos
+ * ainda em aberto ('solicitado'/'confirmado') com data no passado.
+ */
+function statusExibicao(e: Evento): StatusEventoExibicao {
+  if (e.status === 'concluido' || e.status === 'cancelado') return e.status;
   const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
   const d = new Date(e.data); d.setHours(0, 0, 0, 0);
-  return d < hoje ? 'atrasado' : 'pendente';
+  return d < hoje ? 'atrasado' : e.status;
 }
 
 function formatarDataLonga(d: Date): string {
@@ -53,15 +52,18 @@ function formatarHora(iso: string): string {
 
 export default function AgendaScreen() {
   const router = useRouter();
-  const { petAtivo, eventos, concluirEvento, removerEvento } = usePet();
+  const { petAtivo, eventos, removerEvento } = usePet();
   const [filtro, setFiltro] = useState<Filtro>('todos');
   const [mesRef, setMesRef] = useState(() => new Date());
   const [selecionado, setSelecionado] = useState(() => new Date());
 
-  const eventosComStatus = useMemo(() => eventos.map(e => ({ ...e, status: statusAtualizado(e) })), [eventos]);
+  const eventosComStatus = useMemo(
+    () => eventos.map(e => ({ ...e, statusExibicao: statusExibicao(e) })),
+    [eventos]
+  );
 
   const eventosFiltrados = useMemo(() => {
-    if (filtro === 'atrasado') return eventosComStatus.filter(e => e.status === 'atrasado');
+    if (filtro === 'atrasado') return eventosComStatus.filter(e => e.statusExibicao === 'atrasado');
     if (filtro !== 'todos') return eventosComStatus.filter(e => e.tipo === filtro);
     return eventosComStatus;
   }, [eventosComStatus, filtro]);
@@ -91,6 +93,17 @@ export default function AgendaScreen() {
       setSelecionado(novo);
       return novo;
     });
+  }
+
+  function handleRemover(id: string) {
+    Alert.alert(
+      'Retirar solicitação?',
+      'Isso cancela o pedido antes mesmo do veterinário confirmar. Essa ação não pode ser desfeita.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Retirar', style: 'destructive', onPress: () => removerEvento(id) },
+      ]
+    );
   }
 
   return (
@@ -145,12 +158,13 @@ export default function AgendaScreen() {
           <View style={s.empty}>
             <AppIcon name="calendar-outline" set="Ionicons" size={40} color={C.muted} style={s.emptyIcon} />
             <Text style={s.emptyTitle}>Nenhum exame nesse dia</Text>
-            <Text style={s.emptySub}>Toque em outra data ou adicione um novo evento</Text>
+            <Text style={s.emptySub}>Toque em outra data ou solicite um novo evento</Text>
           </View>
         ) : (
           eventosDoDia.map(item => {
             const t = TIPOS_EVENTO.find(x => x.valor === item.tipo);
-            const sb = STATUS_BADGE[item.status];
+            const sb = STATUS_EVENTO[item.statusExibicao];
+            const podeRetirar = item.status === 'solicitado';
             return (
               <View key={item.id} style={s.card}>
                 <View style={s.cardRow}>
@@ -163,12 +177,7 @@ export default function AgendaScreen() {
                       <AppIcon name="time-outline" set="Ionicons" size={11} color={C.muted} />
                       <Text style={s.eventoMeta}>{formatarHora(item.data)}</Text>
                       <Text style={s.eventoMetaDot}>•</Text>
-                      <AppIcon
-                        name={petAtivo ? 'paw' : 'help-outline'}
-                        set="MaterialCommunityIcons"
-                        size={11}
-                        color={C.muted}
-                      />
+                      <AppIcon name="paw" set="MaterialCommunityIcons" size={11} color={C.muted} />
                       <Text style={s.eventoMeta}>{petAtivo?.nome ?? 'Pet não identificado'}</Text>
                     </View>
                   </View>
@@ -183,21 +192,15 @@ export default function AgendaScreen() {
                       <Text style={[s.badgeText, { color: sb.color }]}>{sb.label}</Text>
                     </View>
                   </View>
-                  <View style={s.acoes}>
-                    {item.status !== 'concluido' && (
-                      <Pressable style={s.btnAcao} onPress={() => concluirEvento(item.id)}>
-                        <Ionicons name="checkmark" size={14} color={C.g600} />
-                        <Text style={[s.btnAcaoText, { color: C.g600 }]}>Ok</Text>
-                      </Pressable>
-                    )}
+                  {podeRetirar && (
                     <Pressable
                       style={[s.btnAcao, s.btnAcaoDanger]}
-                      onPress={() => removerEvento(item.id)}
+                      onPress={() => handleRemover(item.id)}
                     >
-                      <Ionicons name="trash-outline" size={14} color={C.danger} />
-                      <Text style={[s.btnAcaoText, { color: C.danger }]}>Remover</Text>
+                      <Ionicons name="close-circle-outline" size={14} color={C.danger} />
+                      <Text style={[s.btnAcaoText, { color: C.danger }]}>Retirar</Text>
                     </Pressable>
-                  </View>
+                  )}
                 </View>
               </View>
             );
@@ -278,7 +281,6 @@ const s = StyleSheet.create({
   badges: { flexDirection: 'row', gap: 6 },
   badge: { paddingHorizontal: 9, paddingVertical: 3, borderRadius: 20 },
   badgeText: { fontSize: 11, fontWeight: '700' },
-  acoes: { flexDirection: 'row', gap: 6 },
   btnAcao: {
     flexDirection: 'row',
     alignItems: 'center',
