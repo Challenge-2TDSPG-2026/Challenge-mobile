@@ -30,6 +30,9 @@ function RootNavigator() {
     const emAreaTutor = grupoAtual === '(tutor)';
     const emAreaVet = grupoAtual === '(vet)';
 
+    // Compatibilidade: onboarding antigo não gravava Sessão (ver TODOs
+    // removidos no onboarding.tsx da Fase 5). Enquanto isso, tratamos
+    // "onboarding concluído sem sessão registrada" como tutor logado.
     const tutorLogado = onboardingConcluido && (tipoContaSessao === 'tutor' || tipoContaSessao === null);
     const vetLogado = tipoContaSessao === 'veterinario' && veterinarioAtivo !== null;
 
@@ -43,6 +46,7 @@ function RootNavigator() {
       return;
     }
 
+    // Ninguém logado — manda para a tela de auth correspondente
     if (!emAuthTutor && !emAuthVet) {
       router.replace('/onboarding');
     }
@@ -56,6 +60,16 @@ function RootNavigator() {
       <Stack.Screen name="(vet)" />
       <Stack.Screen name="add-evento" options={{ presentation: 'modal', headerShown: false }} />
       <Stack.Screen name="add-pet" options={{ presentation: 'modal', headerShown: false }} />
+      <Stack.Screen
+        name="paciente/[id]"
+        options={{
+          headerShown: true,
+          title: 'Ficha do Paciente',
+          headerStyle: { backgroundColor: '#0e3326' },
+          headerTintColor: '#fff',
+          headerTitleStyle: { fontWeight: '700' },
+        }}
+      />
     </Stack>
   );
 }

@@ -69,7 +69,7 @@ export default function VetPacientesScreen() {
               <Pressable
                 key={pet.id}
                 style={s.card}
-                onPress={() => router.push(`/(vet)/paciente/${pet.id}`)}
+                onPress={() => router.push(`/paciente/${pet.id}`)}
               >
                 <View style={s.avatar}>
                   <AppIcon
