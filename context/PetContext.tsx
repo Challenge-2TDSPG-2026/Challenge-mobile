@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import type { Pet, Evento, Recompensa } from '../types';
+import type { Pet, Evento, Recompensa, StatusEventoExibicao } from '../types';
 import { META_CONSULTAS_RECOMPENSA, XP_POR_EVENTO, NIVEIS, CONQUISTAS } from '../constants';
 import {
   salvarEventos,
@@ -13,11 +13,11 @@ import {
 import { petService } from '../services/petService';
 import { recompensaService } from '../services/recompensaService';
 
-function statusAtualizado(e: Evento): Evento['status'] {
-  if (e.status === 'concluido') return 'concluido';
+function statusExibicao(e: Evento): StatusEventoExibicao {
+  if (e.status === 'concluido' || e.status === 'cancelado') return e.status;
   const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
   const d = new Date(e.data); d.setHours(0, 0, 0, 0);
-  return d < hoje ? 'atrasado' : 'pendente';
+  return d < hoje ? 'atrasado' : e.status;
 }
 
 export interface NivelInfo {
@@ -40,37 +40,28 @@ export interface ConquistaComStatus {
 }
 
 type PetContextValue = {
-  // --- Múltiplos pets ---
   pets: Pet[];
   petAtivo: Pet | null;
   petAtivoId: string | null;
   selecionarPet: (id: string) => Promise<void>;
   adicionarPet: (pet: Pet) => Promise<void>;
   removerPet: (id: string) => Promise<void>;
-
-  // --- Eventos do pet ativo ---
   eventos: Evento[];
   preferencias: Record<string, boolean>;
   onboardingConcluido: boolean;
   carregando: boolean;
   adicionarEvento: (evento: Evento) => Promise<void>;
-  concluirEvento: (id: string) => Promise<void>;
   removerEvento: (id: string) => Promise<void>;
   atualizarPreferencias: (prefs: Record<string, boolean>) => Promise<void>;
   resetar: () => Promise<void>;
 
-  // --- Recompensas (do pet ativo) ---
   recompensas: Recompensa[];
   metaConsultas: number;
   consultasConcluidasTotal: number;
   consultasNoCicloAtual: number;
   recompensasDisponiveis: Recompensa[];
   resgatarRecompensa: (id: string) => Promise<void>;
-
-  // --- Nível/XP (do pet ativo) ---
   nivelInfo: NivelInfo;
-
-  // --- Conquistas (do pet ativo) ---
   conquistas: ConquistaComStatus[];
   conquistasDesbloqueadas: ConquistaComStatus[];
 };
@@ -147,7 +138,6 @@ export function PetProvider({ children }: { children: React.ReactNode }) {
     }
   }, [pets, petAtivoId]);
 
-  // --- Eventos escopados ao pet ativo ---
   const eventos = useMemo(
     () => eventosTodos.filter(e => e.petId === petAtivoId),
     [eventosTodos, petAtivoId]
@@ -156,16 +146,6 @@ export function PetProvider({ children }: { children: React.ReactNode }) {
   const adicionarEvento = useCallback(async (evento: Evento) => {
     setEventosTodos(prev => {
       const novos = [...prev, evento];
-      salvarEventos(novos);
-      return novos;
-    });
-  }, []);
-
-  const concluirEvento = useCallback(async (id: string) => {
-    setEventosTodos(prev => {
-      const novos = prev.map(e =>
-        e.id === id ? { ...e, status: 'concluido' as const } : e
-      );
       salvarEventos(novos);
       return novos;
     });
@@ -277,12 +257,15 @@ export function PetProvider({ children }: { children: React.ReactNode }) {
   }, [eventosConcluidosTotal]);
 
   // --- Conquistas (do pet ativo) ---
-  const eventosComStatus = useMemo(() => eventos.map(e => ({ ...e, status: statusAtualizado(e) })), [eventos]);
+  const eventosComStatus = useMemo(
+    () => eventos.map(e => ({ ...e, statusExibicao: statusExibicao(e) })),
+    [eventos]
+  );
 
   const conquistas: ConquistaComStatus[] = useMemo(() => {
     const vacinas = eventosComStatus.filter(e => e.tipo === 'vacina');
-    const temAtraso = eventosComStatus.some(e => e.status === 'atrasado');
-    const temVacinaAtrasada = vacinas.some(e => e.status === 'atrasado');
+    const temAtraso = eventosComStatus.some(e => e.statusExibicao === 'atrasado');
+    const temVacinaAtrasada = vacinas.some(e => e.statusExibicao === 'atrasado');
 
     const regras: Record<string, boolean> = {
       'primeiro-cadastro': petAtivo !== null,
@@ -320,7 +303,6 @@ export function PetProvider({ children }: { children: React.ReactNode }) {
         onboardingConcluido,
         carregando,
         adicionarEvento,
-        concluirEvento,
         removerEvento,
         atualizarPreferencias,
         resetar,
