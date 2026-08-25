@@ -1,6 +1,15 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STORAGE_KEYS } from '../constants';
-import type { Pet, Evento, Recompensa } from '../types';
+import type {
+  Pet,
+  Evento,
+  StatusEvento,
+  Recompensa,
+  TipoConta,
+  Veterinario,
+  FaixaDisponibilidade,
+  BloqueioAgenda,
+} from '../types';
 
 export async function salvarPets(pets: Pet[]): Promise<void> {
   await AsyncStorage.setItem(STORAGE_KEYS.PETS, JSON.stringify(pets));
@@ -20,6 +29,22 @@ export async function carregarPetAtivoId(): Promise<string | null> {
   return AsyncStorage.getItem(STORAGE_KEYS.PET_ATIVO);
 }
 
+function migrarStatusEvento(status: string): StatusEvento {
+  switch (status) {
+    case 'pendente':
+    case 'atrasado':
+      return 'solicitado';
+    case 'concluido':
+      return 'concluido';
+    case 'solicitado':
+    case 'confirmado':
+    case 'cancelado':
+      return status as StatusEvento;
+    default:
+      return 'solicitado';
+  }
+}
+
 export async function salvarEventos(eventos: Evento[]): Promise<void> {
   await AsyncStorage.setItem(STORAGE_KEYS.EVENTOS, JSON.stringify(eventos));
 }
@@ -27,7 +52,21 @@ export async function salvarEventos(eventos: Evento[]): Promise<void> {
 export async function carregarEventos(): Promise<Evento[]> {
   const raw = await AsyncStorage.getItem(STORAGE_KEYS.EVENTOS);
   if (!raw) return [];
-  return JSON.parse(raw) as Evento[];
+
+  const eventos = JSON.parse(raw) as Evento[];
+  let precisouMigrar = false;
+
+  const eventosMigrados = eventos.map(e => {
+    const statusMigrado = migrarStatusEvento(e.status as unknown as string);
+    if (statusMigrado !== e.status) precisouMigrar = true;
+    return { ...e, status: statusMigrado };
+  });
+
+  if (precisouMigrar) {
+    await salvarEventos(eventosMigrados);
+  }
+
+  return eventosMigrados;
 }
 
 export async function marcarOnboardingConcluido(): Promise<void> {
@@ -53,6 +92,7 @@ export interface Sessao {
   email: string;
   token: string;
   criadaEm: string;
+  tipoConta: TipoConta;
 }
 
 export async function salvarSessao(sessao: Sessao): Promise<void> {
@@ -62,7 +102,13 @@ export async function salvarSessao(sessao: Sessao): Promise<void> {
 export async function carregarSessao(): Promise<Sessao | null> {
   const raw = await AsyncStorage.getItem(STORAGE_KEYS.SESSAO);
   if (!raw) return null;
-  return JSON.parse(raw) as Sessao;
+  const sessao = JSON.parse(raw) as Partial<Sessao>;
+  return {
+    email: sessao.email ?? '',
+    token: sessao.token ?? '',
+    criadaEm: sessao.criadaEm ?? new Date().toISOString(),
+    tipoConta: sessao.tipoConta ?? 'tutor',
+  };
 }
 
 export async function removerSessao(): Promise<void> {
@@ -79,6 +125,44 @@ export async function carregarRecompensas(): Promise<Recompensa[]> {
   return JSON.parse(raw) as Recompensa[];
 }
 
+export async function salvarVeterinarios(veterinarios: Veterinario[]): Promise<void> {
+  await AsyncStorage.setItem(STORAGE_KEYS.VETERINARIOS, JSON.stringify(veterinarios));
+}
+
+export async function carregarVeterinarios(): Promise<Veterinario[]> {
+  const raw = await AsyncStorage.getItem(STORAGE_KEYS.VETERINARIOS);
+  if (!raw) return [];
+  return JSON.parse(raw) as Veterinario[];
+}
+
+export async function salvarVeterinarioAtivoId(id: string): Promise<void> {
+  await AsyncStorage.setItem(STORAGE_KEYS.VETERINARIO_ATIVO, id);
+}
+
+export async function carregarVeterinarioAtivoId(): Promise<string | null> {
+  return AsyncStorage.getItem(STORAGE_KEYS.VETERINARIO_ATIVO);
+}
+
+export async function salvarDisponibilidade(faixas: FaixaDisponibilidade[]): Promise<void> {
+  await AsyncStorage.setItem(STORAGE_KEYS.DISPONIBILIDADE, JSON.stringify(faixas));
+}
+
+export async function carregarDisponibilidade(): Promise<FaixaDisponibilidade[]> {
+  const raw = await AsyncStorage.getItem(STORAGE_KEYS.DISPONIBILIDADE);
+  if (!raw) return [];
+  return JSON.parse(raw) as FaixaDisponibilidade[];
+}
+
+export async function salvarBloqueios(bloqueios: BloqueioAgenda[]): Promise<void> {
+  await AsyncStorage.setItem(STORAGE_KEYS.BLOQUEIOS_AGENDA, JSON.stringify(bloqueios));
+}
+
+export async function carregarBloqueios(): Promise<BloqueioAgenda[]> {
+  const raw = await AsyncStorage.getItem(STORAGE_KEYS.BLOQUEIOS_AGENDA);
+  if (!raw) return [];
+  return JSON.parse(raw) as BloqueioAgenda[];
+}
+
 export async function resetarTodosDados(): Promise<void> {
   await AsyncStorage.multiRemove([
     STORAGE_KEYS.PETS,
@@ -88,5 +172,9 @@ export async function resetarTodosDados(): Promise<void> {
     STORAGE_KEYS.NOTIFICACOES,
     STORAGE_KEYS.SESSAO,
     STORAGE_KEYS.RECOMPENSAS,
+    STORAGE_KEYS.VETERINARIOS,
+    STORAGE_KEYS.VETERINARIO_ATIVO,
+    STORAGE_KEYS.DISPONIBILIDADE,
+    STORAGE_KEYS.BLOQUEIOS_AGENDA,
   ]);
 }
