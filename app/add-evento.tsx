@@ -14,7 +14,7 @@ const C = {
   g500: '#22a06b', g400: '#3db87e', g200: '#a8e6c7', g100: '#d4f2e4', g50: '#edfaf3',
   cream: '#fafaf8', w50: '#f9f7f4', w100: '#f0ece5',
   text: '#1a1512', muted: '#7a6a5e', border: '#e8e2da', white: '#fff',
-  danger: '#dc3545', warn: '#e67e22',
+  danger: '#dc3545', warn: '#e67e22', info: '#2563eb',
 };
 
 function formatarData(text: string): string {
@@ -49,12 +49,6 @@ export default function AddEventoScreen() {
     return new Date(`${aaaa}-${mm}-${dd}T12:00:00`).toISOString();
   }
 
-  function statusInicial(iso: string): Evento['status'] {
-    const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
-    const d = new Date(iso); d.setHours(0, 0, 0, 0);
-    return d < hoje ? 'atrasado' : 'pendente';
-  }
-
   async function handleSalvar() {
     if (!validar()) return;
     setSalvando(true);
@@ -66,7 +60,7 @@ export default function AddEventoScreen() {
         tipo, titulo: titulo.trim(),
         descricao: descricao.trim() || undefined,
         data: iso,
-        status: statusInicial(iso),
+        status: 'solicitado',
         criadoEm: new Date().toISOString(),
       });
       router.back();
@@ -81,7 +75,7 @@ export default function AddEventoScreen() {
   return (
     <>
       <Stack.Screen options={{
-        title: 'Registrar Evento de Saúde',
+        title: 'Solicitar Evento de Saúde',
         headerStyle: { backgroundColor: C.g800 },
         headerTintColor: C.white,
         headerTitleStyle: { fontWeight: '700' },
@@ -105,6 +99,13 @@ export default function AddEventoScreen() {
               </Text>
               {descricao ? <Text style={s.previewDesc}>{descricao}</Text> : null}
             </View>
+          </View>
+
+          <View style={s.infoBanner}>
+            <AppIcon name="information-circle-outline" set="Ionicons" size={18} color={C.info} />
+            <Text style={s.infoBannerText}>
+              Sua solicitação será enviada ao veterinário, que vai confirmar (ou recusar) o atendimento.
+            </Text>
           </View>
 
           <View style={s.fg}>
@@ -169,7 +170,7 @@ export default function AddEventoScreen() {
           )}
 
           <View style={s.fg}>
-            <Text style={s.fl}>Data Realização *</Text>
+            <Text style={s.fl}>Data Desejada *</Text>
             <TextInput
               style={[s.fiInput, erros.data && s.fiInputErro]}
               value={data}
@@ -188,7 +189,7 @@ export default function AddEventoScreen() {
               style={[s.fiInput, s.fiTextarea]}
               value={descricao}
               onChangeText={setDescricao}
-              placeholder="Clínica, veterinário, anotações..."
+              placeholder="Sintomas, observações para o veterinário..."
               placeholderTextColor={C.muted}
               multiline
               numberOfLines={3}
@@ -205,7 +206,7 @@ export default function AddEventoScreen() {
               disabled={salvando}
             >
               {salvando ? (
-                <Text style={s.btnSalvarText}>Registrando...</Text>
+                <Text style={s.btnSalvarText}>Enviando solicitação...</Text>
               ) : (
                 <>
                   <AppIcon
@@ -215,7 +216,7 @@ export default function AddEventoScreen() {
                     color={C.white}
                     style={{ marginRight: 6 }}
                   />
-                  <Text style={s.btnSalvarText}>Registrar Evento</Text>
+                  <Text style={s.btnSalvarText}>Solicitar Evento</Text>
                 </>
               )}
             </Pressable>
@@ -238,7 +239,7 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-    marginBottom: 22,
+    marginBottom: 14,
     borderWidth: 1,
     borderColor: C.border,
   },
@@ -247,6 +248,19 @@ const s = StyleSheet.create({
   previewTitulo: { fontSize: 16, fontWeight: '700', color: C.text },
   previewSub: { fontSize: 12, color: C.muted, marginTop: 3 },
   previewDesc: { fontSize: 12, color: C.muted, marginTop: 4, fontStyle: 'italic' },
+
+  infoBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#eff6ff',
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 22,
+  },
+  infoBannerText: { flex: 1, fontSize: 12, color: '#1e40af' },
 
   fg: { marginBottom: 18 },
   fl: {
