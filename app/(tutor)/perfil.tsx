@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { usePet } from '../../context/PetContext';
 import { ESPECIES } from '../../constants';
 import { AppIcon } from '../../components/AppIcon';
-import type { Evento } from '../../types';
+import type { Evento, StatusEventoExibicao } from '../../types';
 
 const C = {
   g900: '#0a2218', g800: '#0e3326', g700: '#155c3f', g600: '#1a7a52',
@@ -15,11 +15,12 @@ const C = {
   danger: '#dc3545', warn: '#e67e22', info: '#2563eb',
 };
 
-function statusAtualizado(e: Evento): Evento['status'] {
-  if (e.status === 'concluido') return 'concluido';
+/** Mesma regra de exibição usada em todo o app do tutor. */
+function statusExibicao(e: Evento): StatusEventoExibicao {
+  if (e.status === 'concluido' || e.status === 'cancelado') return e.status;
   const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
   const d = new Date(e.data); d.setHours(0, 0, 0, 0);
-  return d < hoje ? 'atrasado' : 'pendente';
+  return d < hoje ? 'atrasado' : e.status;
 }
 
 export default function PerfilScreen() {
@@ -36,11 +37,14 @@ export default function PerfilScreen() {
     resetar,
   } = usePet();
 
-  const eventosComStatus = useMemo(() => eventos.map(e => ({ ...e, status: statusAtualizado(e) })), [eventos]);
+  const eventosComStatus = useMemo(
+    () => eventos.map(e => ({ ...e, statusExibicao: statusExibicao(e) })),
+    [eventos]
+  );
   const total = eventosComStatus.length;
-  const concluidos = eventosComStatus.filter(e => e.status === 'concluido').length;
-  const pendentes = eventosComStatus.filter(e => e.status === 'pendente').length;
-  const atrasados = eventosComStatus.filter(e => e.status === 'atrasado').length;
+  const concluidos = eventosComStatus.filter(e => e.statusExibicao === 'concluido').length;
+  const pendentes = eventosComStatus.filter(e => e.statusExibicao === 'solicitado' || e.statusExibicao === 'confirmado').length;
+  const atrasados = eventosComStatus.filter(e => e.statusExibicao === 'atrasado').length;
   const especieInfo = ESPECIES.find(e => e.valor === petAtivo?.especie);
 
   function handleResetar() {
@@ -200,7 +204,7 @@ export default function PerfilScreen() {
           ['Aplicativo', 'ClyvoVet'],
           ['Versão', '1.0.0'],
           ['Desafio', 'FIAP Challenge 2026'],
-          ['Expo SDK', '~55.0.0'],
+          ['Expo SDK', '~54.0.0'],
         ].map(([label, valor], i, arr) => (
           <View key={label}>
             <View style={s.infoRow}>
