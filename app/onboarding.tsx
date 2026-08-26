@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TextInput, ScrollView, Pressable,
+  View, Text, TextInput, ScrollView, Pressable, Image,
   StyleSheet, KeyboardAvoidingView, Platform, Alert,
   LayoutAnimation, UIManager,
 } from 'react-native';
@@ -100,6 +100,8 @@ export default function OnboardingScreen() {
     if (!validarConta()) return;
     setAutenticando(true);
     try {
+      // Cria a sessão do tutor já aqui — o passo seguinte (dados do pet)
+      // só existe porque a conta foi criada com sucesso.
       await authService.registrar(email, senha, 'tutor');
       trocarConteudo(() => setEtapaCadastro('pet'));
     } catch {
@@ -192,7 +194,7 @@ export default function OnboardingScreen() {
 
           <View style={s.authHdr}>
             <View style={s.authLogo}>
-              <AppIcon name="paw" set="MaterialCommunityIcons" size={26} color={C.white} />
+              <Image source={require('../assets/logo.png')} style={s.authLogoImg} resizeMode="contain" />
             </View>
             <Text style={s.authName}>ClyvoVet</Text>
             <Text style={s.authSub}>Plataforma de Saúde Animal</Text>
@@ -481,6 +483,7 @@ const s = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
+  authLogoImg: { width: 32, height: 32 },
   authName: { fontSize: 26, fontWeight: '700', color: C.white, letterSpacing: -0.5, marginBottom: 4 },
   authSub: { fontSize: 12, color: C.g200 },
 
