@@ -1,10 +1,10 @@
 import React, { useMemo } from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { usePet } from '../../context/PetContext';
-import { TIPOS_EVENTO } from '../../constants';
+import { TIPOS_EVENTO, STATUS_EVENTO } from '../../constants';
 import { AppIcon } from '../../components/AppIcon';
 import { PetSwitcher } from '../../components/PetSwitcher';
-import type { Evento } from '../../types';
+import type { Evento, StatusEventoExibicao } from '../../types';
 
 const C = {
   g900: '#0a2218', g800: '#0e3326', g700: '#155c3f', g600: '#1a7a52',
@@ -14,17 +14,12 @@ const C = {
   danger: '#dc3545', warn: '#e67e22', info: '#2563eb',
 };
 
-const STATUS_BADGE: Record<string, { bg: string; color: string; label: string }> = {
-  pendente: { bg: '#fef3c7', color: '#92400e', label: 'Pendente' },
-  concluido: { bg: '#dcfce7', color: '#166534', label: 'Realizado' },
-  atrasado: { bg: '#fee2e2', color: '#991b1b', label: 'Atrasado' },
-};
-
-function statusAtualizado(e: Evento): Evento['status'] {
-  if (e.status === 'concluido') return 'concluido';
+/** Mesma regra de exibição usada no PetContext e no agenda.tsx. */
+function statusExibicao(e: Evento): StatusEventoExibicao {
+  if (e.status === 'concluido' || e.status === 'cancelado') return e.status;
   const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
   const d = new Date(e.data); d.setHours(0, 0, 0, 0);
-  return d < hoje ? 'atrasado' : 'pendente';
+  return d < hoje ? 'atrasado' : e.status;
 }
 
 function mesAno(iso: string): string {
@@ -38,10 +33,20 @@ function formatarDataCurta(iso: string): string {
 export default function HistoricoScreen() {
   const { eventos } = usePet();
 
-  const eventosComStatus = useMemo(() => eventos.map(e => ({ ...e, status: statusAtualizado(e) })), [eventos]);
+  const eventosComStatus = useMemo(
+    () => eventos.map(e => ({ ...e, statusExibicao: statusExibicao(e) })),
+    [eventos]
+  );
+
   const total = eventosComStatus.length;
   const concluidos = eventosComStatus.filter(e => e.status === 'concluido').length;
-  const progresso = total > 0 ? concluidos / total : 0;
+  const cancelados = eventosComStatus.filter(e => e.status === 'cancelado').length;
+  const emAndamento = total - concluidos - cancelados;
+
+  // Taxa de conclusão considera só eventos que não foram cancelados
+  const baseCalculo = total - cancelados;
+  const progresso = baseCalculo > 0 ? concluidos / baseCalculo : 0;
+  const pct = Math.round(progresso * 100);
 
   const agrupados = useMemo(() => {
     const mapa: Record<string, typeof eventosComStatus> = {};
@@ -54,8 +59,6 @@ export default function HistoricoScreen() {
     return mapa;
   }, [eventosComStatus]);
 
-  const pct = Math.round(progresso * 100);
-
   return (
     <ScrollView style={s.container} contentContainerStyle={s.content}>
 
@@ -64,7 +67,8 @@ export default function HistoricoScreen() {
       <View style={s.statsRow}>
         <StatCard valor={total} label="Total" accentColor={C.info} />
         <StatCard valor={concluidos} label="Realizados" accentColor={C.g500} />
-        <StatCard valor={total - concluidos} label="Pendentes" accentColor={C.warn} />
+        <StatCard valor={emAndamento} label="Em Andamento" accentColor={C.warn} />
+        <StatCard valor={cancelados} label="Canceladas" accentColor={C.danger} />
       </View>
 
       <View style={s.progressoCard}>
@@ -75,7 +79,7 @@ export default function HistoricoScreen() {
           </View>
           <View style={s.progressoMeta}>
             <Text style={s.progressoMetaText}>{concluidos} realizados</Text>
-            <Text style={s.progressoMetaText}>{total - concluidos} pendentes</Text>
+            <Text style={s.progressoMetaText}>{emAndamento} em andamento</Text>
           </View>
         </View>
         <View style={s.barraTrack}>
@@ -88,7 +92,7 @@ export default function HistoricoScreen() {
         <View style={s.empty}>
           <AppIcon name="document-text-outline" set="Ionicons" size={40} color={C.muted} style={s.emptyIcon} />
           <Text style={s.emptyTitle}>Nenhum evento registrado ainda</Text>
-          <Text style={s.emptySub}>Adicione eventos para ver o histórico clínico</Text>
+          <Text style={s.emptySub}>Solicite eventos para ver o histórico clínico</Text>
         </View>
       ) : (
         Object.entries(agrupados).map(([mes, evts]) => (
@@ -108,7 +112,7 @@ export default function HistoricoScreen() {
               </View>
               {evts.map((evento, idx) => {
                 const t = TIPOS_EVENTO.find(x => x.valor === evento.tipo);
-                const sb = STATUS_BADGE[evento.status];
+                const sb = STATUS_EVENTO[evento.statusExibicao];
                 const isLast = idx === evts.length - 1;
                 return (
                   <View key={evento.id} style={[s.tabelaRow, !isLast && s.tabelaRowBorder]}>
@@ -155,18 +159,18 @@ const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.cream },
   content: { padding: 16, paddingBottom: 32 },
 
-  statsRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
+  statsRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
   statCard: {
     flex: 1,
     backgroundColor: C.white,
     borderWidth: 1,
     borderColor: C.border,
     borderRadius: 12,
-    padding: 14,
+    padding: 10,
     borderBottomWidth: 3,
   },
-  statLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 0.4, textTransform: 'uppercase', color: C.muted, marginBottom: 6 },
-  statVal: { fontSize: 26, fontWeight: '700', lineHeight: 28 },
+  statLabel: { fontSize: 9, fontWeight: '700', letterSpacing: 0.3, textTransform: 'uppercase', color: C.muted, marginBottom: 5 },
+  statVal: { fontSize: 20, fontWeight: '700', lineHeight: 22 },
 
   progressoCard: { backgroundColor: C.g800, borderRadius: 16, padding: 20, marginBottom: 24 },
   progressoHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 },
