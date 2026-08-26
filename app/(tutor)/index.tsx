@@ -3,10 +3,10 @@ import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { usePet } from '../../context/PetContext';
-import { ESPECIES, TIPOS_EVENTO } from '../../constants';
+import { ESPECIES, TIPOS_EVENTO, STATUS_EVENTO } from '../../constants';
 import { AppIcon } from '../../components/AppIcon';
 import { PetSwitcher } from '../../components/PetSwitcher';
-import type { Evento } from '../../types';
+import type { Evento, StatusEventoExibicao } from '../../types';
 
 const C = {
   g900: '#0a2218', g800: '#0e3326', g700: '#155c3f', g600: '#1a7a52',
@@ -30,27 +30,28 @@ function formatarData(iso: string): string {
   return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function statusAtualizado(e: Evento): Evento['status'] {
-  if (e.status === 'concluido') return 'concluido';
+/** Mesma regra de exibição usada no PetContext, agenda.tsx e historico.tsx. */
+function statusExibicao(e: Evento): StatusEventoExibicao {
+  if (e.status === 'concluido' || e.status === 'cancelado') return e.status;
   const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
   const d = new Date(e.data); d.setHours(0, 0, 0, 0);
-  return d < hoje ? 'atrasado' : 'pendente';
+  return d < hoje ? 'atrasado' : e.status;
 }
-
-const STATUS_BADGE: Record<string, { bg: string; color: string; label: string }> = {
-  pendente: { bg: '#fef3c7', color: '#92400e', label: 'Pendente' },
-  concluido: { bg: '#dcfce7', color: '#166534', label: 'Realizado' },
-  atrasado: { bg: '#fee2e2', color: '#991b1b', label: 'Atrasado' },
-};
 
 export default function DashboardScreen() {
   const router = useRouter();
   const { petAtivo, eventos } = usePet();
 
-  const eventosComStatus = useMemo(() => eventos.map(e => ({ ...e, status: statusAtualizado(e) })), [eventos]);
-  const pendentes = eventosComStatus.filter(e => e.status === 'pendente');
-  const concluidos = eventosComStatus.filter(e => e.status === 'concluido');
-  const atrasados = eventosComStatus.filter(e => e.status === 'atrasado');
+  const eventosComStatus = useMemo(
+    () => eventos.map(e => ({ ...e, statusExibicao: statusExibicao(e) })),
+    [eventos]
+  );
+
+  // "Pendentes" = aguardando resolução (solicitado ou confirmado, ainda não atrasado)
+  const pendentes = eventosComStatus.filter(e => e.statusExibicao === 'solicitado' || e.statusExibicao === 'confirmado');
+  const concluidos = eventosComStatus.filter(e => e.statusExibicao === 'concluido');
+  const atrasados = eventosComStatus.filter(e => e.statusExibicao === 'atrasado');
+
   const proximos = [...pendentes, ...atrasados]
     .sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime())
     .slice(0, 5);
@@ -107,7 +108,7 @@ export default function DashboardScreen() {
             <Text style={s.petDetalhe}>Idade: {calcularIdade(petAtivo.dataNascimento)}</Text>
             <Text style={s.petDetalhe}>Peso: {petAtivo.peso ? `${petAtivo.peso} kg` : '—'}</Text>
           </View>
-          <Pressable style={s.btnProntuario} onPress={() => router.push('/(tabs)/agenda')}>
+          <Pressable style={s.btnProntuario} onPress={() => router.push('/(tutor)/agenda')}>
             <AppIcon name="pulse-outline" set="Ionicons" size={14} color={C.text} style={{ marginRight: 4 }} />
             <Text style={s.btnProntuarioText}>Agenda</Text>
           </Pressable>
@@ -118,7 +119,7 @@ export default function DashboardScreen() {
       <View style={s.card}>
         <View style={s.cardHead}>
           <Text style={s.cardTitle}>Próximos Eventos</Text>
-          <Pressable onPress={() => router.push('/(tabs)/agenda')}>
+          <Pressable onPress={() => router.push('/(tutor)/agenda')}>
             <Text style={s.linkVer}>Ver todos</Text>
           </Pressable>
         </View>
@@ -127,12 +128,12 @@ export default function DashboardScreen() {
           <View style={s.empty}>
             <AppIcon name="calendar-outline" set="Ionicons" size={36} color={C.muted} style={s.emptyIcon} />
             <Text style={s.emptyTitle}>Nenhum evento pendente</Text>
-            <Text style={s.emptySub}>Adicione eventos de saúde para o seu pet</Text>
+            <Text style={s.emptySub}>Solicite eventos de saúde para o seu pet</Text>
           </View>
         ) : (
           proximos.map((e, idx) => {
             const t = TIPOS_EVENTO.find(x => x.valor === e.tipo);
-            const sb = STATUS_BADGE[e.status];
+            const sb = STATUS_EVENTO[e.statusExibicao];
             const isLast = idx === proximos.length - 1;
             return (
               <View key={e.id} style={[s.eventoRow, !isLast && s.eventoRowBorder]}>
@@ -155,7 +156,7 @@ export default function DashboardScreen() {
       {/* CTA button */}
       <Pressable style={s.btnAdd} onPress={() => router.push('/add-evento')}>
         <Ionicons name="add-circle-outline" size={18} color="#fff" />
-        <Text style={s.btnAddText}>Adicionar evento de saúde</Text>
+        <Text style={s.btnAddText}>Solicitar evento de saúde</Text>
       </Pressable>
 
     </ScrollView>
