@@ -1,57 +1,47 @@
-# 🐾 ClyvoVet — Mobile Application
+# ClyvoVet - Mobile Application
 
-> **FIAP Challenge 2026 · 2º Ano ADS — 3° Semestre**
-> Disciplina: Mobile Application Development
+**FIAP Challenge 2026 - 2º Ano ADS - 3° Semestre**
+**Disciplina: Mobile Application Development**
 
-Aplicativo mobile desenvolvido em **React Native com Expo** para o desafio proposto pela **CLYVO VET**, como parte da avaliação prática do 1º semestre de 2026.
-
----
-
-## 📋 Sobre o Projeto
-
-O **ClyvoVet** é um protótipo funcional de aplicativo de saúde para pets, criado para endereçar a **descontinuidade do cuidado veterinário**. A solução permite que tutores organizem, acompanhem e gerenciem a jornada de saúde do seu animal em um só lugar — de forma proativa e personalizada.
-
-O aplicativo resolve um problema real do mercado pet brasileiro: o responsável pelo animal normalmente só aciona a clínica em situações de urgência ou gatilhos óbvios (como vacinação), negligenciando o cuidado preventivo contínuo.
+Aplicativo mobile desenvolvido em React Native com Expo para o desafio proposto pela CLYVO VET, como parte da avaliação prática do 1º semestre de 2026.
 
 ---
 
-## ✨ Funcionalidades
+## Sobre o Projeto
 
-- **Onboarding** — cadastro inicial do pet com validação de campos (nome, espécie, raça, data de nascimento e peso)
-- **Dashboard** — visão geral com estatísticas de eventos pendentes, realizados e atrasados, além dos próximos eventos agendados
-- **Agenda de Saúde** — listagem completa de eventos com filtros por tipo (vacina, vermífugo, consulta, medicamento, check-up) e por status (atrasados), com ações de concluir e remover
-- **Adicionar Evento** — formulário para cadastro de novos eventos clínicos com tipo, título, descrição e data
-- **Histórico Clínico** — linha do tempo agrupada por mês com taxa de conclusão e barra de progresso
-- **Perfil** — dados do pet, preferências de notificação (Switches) e opção de reset completo
+O ClyvoVet é um protótipo funcional de aplicativo de saúde para animais de estimação, criado para endereçar a descontinuidade do cuidado veterinário. A solução permite que tutores organizem, acompanhem e gerenciem a jornada de saúde do seu animal em um só lugar, de forma proativa e personalizada.
+
+O aplicativo resolve um problema real do mercado veterinário brasileiro: o responsável pelo animal normalmente aciona a clínica apenas em situações de urgência ou gatilhos óbvios (como vacinação), negligenciando o cuidado preventivo contínuo.
 
 ---
 
-## 🗺️ Fluxo de Navegação
+## Funcionalidades Principais
 
-```
-Onboarding (cadastro do pet)
-        │
-        ▼
-   (tabs) Início  ──────────────────────────► add-evento
-   (tabs) Agenda  ──── FAB ──────────────────► add-evento
-   (tabs) Histórico
-   (tabs) Perfil  ──── Reset ──────────────► Onboarding
-```
+- **Onboarding:** Cadastro inicial do animal com validação de campos (nome, espécie, raça, data de nascimento e peso).
+- **Dashboard:** Visão geral com estatísticas de eventos pendentes, realizados e atrasados, além dos próximos eventos agendados.
+- **Agenda de Saúde:** Listagem completa de eventos com filtros por tipo (vacina, vermífugo, consulta, medicamento, check-up) e por status (atrasados), com ações de concluir e remover.
+- **Adicionar Evento:** Formulário para cadastro de novos eventos clínicos contendo tipo, título, descrição e data.
+- **Histórico Clínico:** Linha do tempo agrupada por mês com taxa de conclusão e barra de progresso.
+- **Perfil:** Dados do animal, preferências de notificação e opção de reinicialização completa do aplicativo (reset).
 
-O app utiliza **Expo Router** com 6 rotas navegáveis:
+---
+
+## Fluxo de Navegação
+
+O aplicativo utiliza o Expo Router contendo 6 rotas navegáveis:
 
 | Rota | Descrição |
 |---|---|
-| `/onboarding` | Cadastro inicial do pet |
-| `/(tabs)/index` | Dashboard — tela inicial |
+| `/onboarding` | Cadastro inicial do animal |
+| `/(tabs)/index` | Dashboard (tela inicial) |
 | `/(tabs)/agenda` | Agenda de eventos com filtros |
 | `/(tabs)/historico` | Histórico clínico agrupado por mês |
-| `/(tabs)/perfil` | Perfil do pet e preferências |
+| `/(tabs)/perfil` | Perfil do animal e configurações |
 | `/add-evento` | Formulário de adição de evento |
 
 ---
 
-## 📦 Tecnologias Utilizadas
+## Tecnologias Utilizadas
 
 | Tecnologia | Versão | Uso |
 |---|---|---|
@@ -60,157 +50,74 @@ O app utiliza **Expo Router** com 6 rotas navegáveis:
 | Expo Router | ~6.0.23 | Navegação baseada em arquivos |
 | TypeScript | ~5.9.2 | Tipagem estática |
 | AsyncStorage | 2.2.0 | Persistência local de dados |
-| @expo/vector-icons | ^15.0.3 | Ícones (Ionicons) |
+| @expo/vector-icons | ^15.0.3 | Ícones nativos (Ionicons) |
 | React Navigation | ^7.0.14 | Navegação nativa |
 
 ---
 
-## 📁 Estrutura do Projeto
+## Estrutura do Projeto
 
-```
+```text
 clyvovet/
 ├── app/
 │   ├── _layout.tsx          # Layout raiz com PetProvider
-│   ├── onboarding.tsx        # Tela de cadastro do pet
-│   ├── add-evento.tsx        # Formulário de novo evento
+│   ├── onboarding.tsx       # Tela de cadastro
+│   ├── add-evento.tsx       # Formulário de novo evento
 │   └── (tabs)/
-│       ├── _layout.tsx       # Tab navigator
-│       ├── index.tsx         # Dashboard
-│       ├── agenda.tsx        # Agenda com filtros
-│       ├── historico.tsx     # Histórico clínico
-│       └── perfil.tsx        # Perfil e configurações
+│       ├── _layout.tsx      # Navegação em abas (Tab navigator)
+│       ├── index.tsx        # Dashboard
+│       ├── agenda.tsx       # Agenda de eventos
+│       ├── historico.tsx    # Histórico clínico
+│       └── perfil.tsx       # Configurações do perfil
 ├── context/
-│   └── PetContext.tsx        # Context API global
+│   └── PetContext.tsx       # Context API global
 ├── storage/
-│   └── petStorage.ts         # Funções AsyncStorage
+│   └── petStorage.ts        # Persistência AsyncStorage
 ├── types/
-│   └── index.ts              # Interfaces Pet e Evento
+│   └── index.ts             # Interfaces do domínio (Pet e Evento)
 ├── constants/
-│   └── index.ts              # Constantes, cores e tipos de evento
-├── app.json
-├── package.json
-└── tsconfig.json
+│   └── index.ts             # Constantes globais
+├── app.json                 # Configurações do Expo
+├── package.json             # Dependências do projeto
+└── tsconfig.json            # Configuração TypeScript
 ```
 
 ---
 
-## 💾 Persistência com AsyncStorage
+## Arquitetura de Software
 
-Todos os dados são salvos localmente no dispositivo usando `@react-native-async-storage/async-storage`. Os dados são restaurados automaticamente ao reabrir o app.
+### Persistência de Dados
+Todos os dados são salvos localmente no dispositivo utilizando a biblioteca `@react-native-async-storage/async-storage`. A restauração ocorre automaticamente na inicialização do aplicativo.
 
-| Chave | Dados armazenados |
+| Chave de Armazenamento | Descrição dos Dados |
 |---|---|
-| `@petcare:pet` | Dados do pet (nome, espécie, raça, nascimento, peso) |
-| `@petcare:eventos` | Lista completa de eventos de saúde |
-| `@petcare:onboarding` | Flag indicando se o cadastro já foi feito |
-| `@petcare:notificacoes` | Preferências de notificação do usuário |
+| `@petcare:pet` | Dados cadastrais do animal (nome, espécie, raça, nascimento, peso) |
+| `@petcare:eventos` | Lista integral de eventos de saúde e histórico clínico |
+| `@petcare:onboarding` | Indicador de conclusão do cadastro inicial |
+| `@petcare:notificacoes` | Configurações e preferências do usuário |
 
----
+### Gerenciamento de Estado
+O estado global da aplicação é gerenciado nativamente através da Context API (`PetContext`), expondo a seguinte estrutura:
 
-## 🧱 Arquitetura de Estado
-
-O estado global é gerenciado via **Context API** (`PetContext`), expondo:
-
-```ts
+```typescript
 {
-  pet: Pet | null
-  eventos: Evento[]
-  preferencias: Record<string, boolean>
-  onboardingConcluido: boolean
-  carregando: boolean
-  salvarNovoPet(pet)
-  adicionarEvento(evento)
-  concluirEvento(id)
-  removerEvento(id)
-  atualizarPreferencias(prefs)
-  resetar()
+  pet: Pet | null;
+  eventos: Evento[];
+  preferencias: Record<string, boolean>;
+  onboardingConcluido: boolean;
+  carregando: boolean;
+  salvarNovoPet: (pet: Pet) => Promise<void>;
+  adicionarEvento: (evento: Evento) => Promise<void>;
+  concluirEvento: (id: string) => Promise<void>;
+  removerEvento: (id: string) => Promise<void>;
+  atualizarPreferencias: (prefs: Record<string, boolean>) => Promise<void>;
+  resetar: () => Promise<void>;
 }
 ```
 
----
+### Modelagem de Dados
 
-## 🚀 Como Executar
-
-### Pré-requisitos
-
-- Node.js 18+
-- npm ou yarn
-- Expo CLI (`npm install -g expo-cli`)
-- Expo Go no dispositivo físico **ou** emulador Android/iOS configurado
-
-### Instalação
-
-```bash
-# 1. Clone o repositório
-git clone https://github.com/Challenge-2TDSPG-2026/Mobile-Application-Development.git
-cd petcare
-
-# 2. Instale as dependências
-npm install
-
-# 3. Inicie o servidor de desenvolvimento
-npm start
-# ou
-npx expo start
-```
-
-### Executar no dispositivo
-
-```bash
-# Android (emulador ou dispositivo físico via Expo Go)
-npm run android
-
-# iOS (somente macOS)
-npm run ios
-```
-
----
-
-## 📱 Telas do Aplicativo
-
-### Onboarding
-Formulário com validação de todos os campos (Bean Validation mobile):
-- Nome obrigatório
-- Raça obrigatória
-- Data de nascimento com máscara `DD/MM/AAAA`
-- Peso numérico validado
-
-### Dashboard (Início)
-- Banner de boas-vindas com emoji da espécie
-- Cards de estatísticas: Pendentes / Realizados / Atrasados
-- Card do pet com dados resumidos
-- Listagem dos próximos 5 eventos
-
-### Agenda de Saúde
-- Filtros horizontais por tipo de evento e status
-- Lista completa ordenada por data
-- Ações inline: concluir ✓ e remover 🗑️
-- FAB para adicionar novo evento
-- Detecção automática de eventos atrasados
-
-### Adicionar Evento
-- Seleção de tipo (vacina, vermífugo, consulta, medicamento, check-up, outro)
-- Campos: título, descrição (opcional) e data
-- Validação antes de salvar
-
-### Histórico Clínico
-- Cards de estatísticas (total, realizados, pendentes)
-- Barra de progresso com taxa de conclusão
-- Timeline agrupada por mês
-- Tabela com tipo, data e status de cada evento
-
-### Perfil
-- Avatar com inicial do pet
-- Dados cadastrais
-- Preferências de notificação com Switch interativo
-- Informações sobre o app
-- Botão de reset (limpa todos os dados e volta ao onboarding)
-
----
-
-## 📊 Tipos de Dados
-
-```ts
+```typescript
 interface Pet {
   id: string;
   nome: string;
@@ -234,43 +141,92 @@ interface Evento {
 
 ---
 
-## 🎯 Requisitos Atendidos
+## Configuração e Execução
 
-| Requisito | Status |
+### Pré-requisitos
+- Node.js (versão 18 ou superior)
+- Gerenciador de pacotes (NPM ou Yarn)
+- Expo CLI (`npm install -g expo-cli`)
+- Aplicativo Expo Go no dispositivo físico ou emulador (Android/iOS) devidamente configurado
+
+### Instruções de Instalação
+
+1. Clone o repositório do projeto:
+```bash
+git clone https://github.com/Challenge-2TDSPG-2026/Mobile-Application-Development.git
+cd Mobile-Application-Development
+```
+
+2. Instale as dependências:
+```bash
+npm install
+```
+
+3. Inicie o servidor local:
+```bash
+npx expo start
+```
+
+### Execução no Dispositivo
+
+Para iniciar o aplicativo via linha de comando:
+
+```bash
+# Para Android (emulador ou dispositivo físico via Expo Go)
+npm run android
+
+# Para iOS (exclusivo para ambiente macOS)
+npm run ios
+```
+
+---
+
+## Detalhamento das Interfaces
+
+- **Onboarding:** Formulário com validação restrita de dados (Bean Validation mobile), exigindo preenchimento de nome, raça, data de nascimento formatada (DD/MM/AAAA) e peso numérico.
+- **Dashboard:** Apresentação da interface inicial com painéis totalizadores (pendentes, realizados, atrasados), resumo do cadastro e exibição dos 5 eventos mais próximos.
+- **Agenda de Saúde:** Navegação em lista com filtros de categorias e situação temporal. Integra botões de ação rápida para conclusão e exclusão de eventos, além de botão flutuante para nova inserção.
+- **Formulário de Eventos:** Interface para detalhamento de ocorrências veterinárias com classificação tipada, campos descritivos e seleção de datas.
+- **Histórico Clínico:** Visualização estruturada do passado clínico do animal, agrupada mensalmente e acompanhada de indicadores de completude do cronograma de saúde.
+- **Configurações do Perfil:** Central de controle contendo o resumo do cadastro, gerenciamento de permissões de notificação e rotina de exclusão de dados da base local.
+
+---
+
+## Atendimento de Requisitos
+
+| Requisito Avaliativo | Status de Conclusão |
 |---|---|
-| Navegação com Expo Router | ✅ |
-| Mínimo de 5 rotas navegáveis | ✅ 6 rotas |
-| Protótipo visual funcional e coerente | ✅ |
-| Formulário com manipulação de estado (useState) | ✅ Onboarding + Add Evento |
-| Armazenamento com AsyncStorage | ✅ Pet, Eventos, Prefs e Onboarding |
-| Dados restaurados ao reiniciar o app | ✅ |
-| Demonstração em vídeo narrada | ✅ |
-| Repositório no GitHub Classroom | ✅ |
-| README.md | ✅ |
+| Implementação de roteamento (Expo Router) | Concluído |
+| Disponibilização de no mínimo 5 rotas | Concluído (6 rotas entregues) |
+| Protótipo visual responsivo e funcional | Concluído |
+| Gerenciamento de estado em formulários (useState) | Concluído |
+| Persistência local (AsyncStorage) | Concluído |
+| Restauração de sessão de usuário | Concluído |
+| Demonstração gravada em vídeo | Concluído |
+| Controle de versão e repositório (GitHub) | Concluído |
+| Documentação técnica (README) | Concluído |
 
 ---
 
-## 🏥 Contexto do Challenge — CLYVO VET
+## Contextualização do Desafio Corporativo
 
-O desafio proposto pela **CLYVO VET** visa transformar a jornada de saúde animal de um modelo episódico e reativo para uma experiência **contínua, preventiva, inteligente e integrada**.
+O desafio técnico proposto pela CLYVO VET almeja a transição da gestão da saúde animal de um paradigma reativo e focado na urgência para uma metodologia preventiva, unificada e contínua.
 
-Este aplicativo mobile endereça o pilar de **experiência do responsável pelo pet**, oferecendo uma interface intuitiva para organizar eventos clínicos recorrentes, lembrar de vacinas, retornos e medicamentos por fase de vida, e gerar um histórico longitudinal estruturado.
+Este sistema concentra-se na experiência do usuário (tutor do animal), consolidando as informações em um histórico longitudinal. O software possibilita a organização eficiente de intervenções médicas repetitivas e procedimentos essenciais adequados a cada ciclo de vida do paciente.
 
 ---
 
-## 👥 Equipe
+## Autores do Projeto
 
-| Nome | RM |
+| Nome | Registro (RM) |
 |---|---|
-| **Arthur Brito da Silva** | *RM562085* |
-| **Luiz Felipe Flosi dos Santos** | *RM563197* |
-| **Pedro Henrique Brum Lopes** | *RM571780* |
-| | |
+| Arthur Brito da Silva | RM562085 |
+| Luiz Felipe Flosi dos Santos | RM563197 |
+| Pedro Henrique Brum Lopes | RM571780 |
 
 ---
 
-## 📄 Licença
+## Informações Adicionais
 
-Projeto desenvolvido para fins acadêmicos — **FIAP Challenge 2026**.
-
-Link para visualização do vídeo - https://youtu.be/j1JywTFRrR4
+- **Licenciamento:** Projeto desenvolvido exclusivamente com fins acadêmicos e avaliativos para o FIAP Challenge 2026.
+- **Demonstração em Vídeo:** [Acessar apresentação no YouTube](https://youtu.be/j1JywTFRrR4)
