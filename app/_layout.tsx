@@ -30,6 +30,14 @@ function RootNavigator() {
     const emAreaTutor = grupoAtual === '(tutor)';
     const emAreaVet = grupoAtual === '(vet)';
 
+    // Rotas registradas no Stack raiz (fora dos grupos (tutor)/(vet)) que
+    // ainda assim pertencem ao fluxo logado de cada tipo de conta — modais
+    // do tutor e a ficha de paciente do veterinário. Sem isso, o guard abaixo
+    // interpretava a navegação para essas telas como "saiu da área" e
+    // expulsava o usuário de volta para a tela inicial a cada toque.
+    const emRotaTutor = grupoAtual === 'add-evento' || grupoAtual === 'add-pet';
+    const emRotaVet = grupoAtual === 'paciente';
+
     // Compatibilidade: onboarding antigo não gravava Sessão (ver TODOs
     // removidos no onboarding.tsx da Fase 5). Enquanto isso, tratamos
     // "onboarding concluído sem sessão registrada" como tutor logado.
@@ -37,12 +45,12 @@ function RootNavigator() {
     const vetLogado = tipoContaSessao === 'veterinario' && veterinarioAtivo !== null;
 
     if (vetLogado) {
-      if (!emAreaVet) router.replace('/(vet)');
+      if (!emAreaVet && !emRotaVet) router.replace('/(vet)');
       return;
     }
 
     if (tutorLogado) {
-      if (!emAreaTutor) router.replace('/(tutor)');
+      if (!emAreaTutor && !emRotaTutor) router.replace('/(tutor)');
       return;
     }
 
