@@ -197,25 +197,6 @@ export default function PerfilScreen() {
         />
       </View>
 
-      {/* Sobre */}
-      <Text style={s.secLabel}>Sobre</Text>
-      <View style={s.card}>
-        {[
-          ['Aplicativo', 'ClyvoVet'],
-          ['Versão', '1.0.0'],
-          ['Desafio', 'FIAP Challenge 2026'],
-          ['Expo SDK', '~54.0.0'],
-        ].map(([label, valor], i, arr) => (
-          <View key={label}>
-            <View style={s.infoRow}>
-              <Text style={s.infoLabel}>{label}</Text>
-              <Text style={s.infoValor}>{valor}</Text>
-            </View>
-            {i < arr.length - 1 && <View style={s.divisor} />}
-          </View>
-        ))}
-      </View>
-
       {/* Resetar */}
       <Pressable style={s.btnResetar} onPress={handleResetar}>
         <Ionicons name="trash-outline" size={16} color="#fff" />

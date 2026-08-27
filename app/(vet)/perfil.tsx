@@ -86,24 +86,6 @@ export default function VetPerfilScreen() {
         ))}
       </View>
 
-      {/* Sobre */}
-      <Text style={s.secLabel}>Sobre</Text>
-      <View style={s.card}>
-        {[
-          ['Aplicativo', 'ClyvoVet — Portal do Veterinário'],
-          ['Versão', '1.0.0'],
-          ['Desafio', 'FIAP Challenge 2026'],
-        ].map(([label, valor], i, arr) => (
-          <View key={label}>
-            <View style={s.infoRow}>
-              <Text style={s.infoLabel}>{label}</Text>
-              <Text style={s.infoValor}>{valor}</Text>
-            </View>
-            {i < arr.length - 1 && <View style={s.divisor} />}
-          </View>
-        ))}
-      </View>
-
       {/* Sair */}
       <Pressable style={s.btnSair} onPress={handleSair}>
         <Ionicons name="log-out-outline" size={16} color="#fff" />
