@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, ScrollView, Pressable,
-  StyleSheet, KeyboardAvoidingView, Platform, Alert,
+  StyleSheet, KeyboardAvoidingView, Platform,
   LayoutAnimation, UIManager,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ESPECIALIDADES_VET } from '../constants';
 import { useVet } from '../context/VetContext';
 import { authService } from '../services/authService';
+import { alertar } from '../utils/alert';
 import { AppIcon } from '../components/AppIcon';
 import type { Veterinario } from '../types';
 
@@ -91,7 +92,7 @@ export default function VetAuthScreen() {
       await authService.registrar(email, senha, 'veterinario');
       trocarConteudo(() => setEtapaCadastro('dados'));
     } catch {
-      Alert.alert('Erro', 'Não foi possível criar sua conta. Tente novamente.');
+      alertar('Erro', 'Não foi possível criar sua conta. Tente novamente.');
     } finally {
       setAutenticando(false);
     }
@@ -131,7 +132,7 @@ export default function VetAuthScreen() {
     try {
       await authService.login(email, senha, 'veterinario');
       if (veterinarios.length === 0) {
-        Alert.alert(
+        alertar(
           'Nenhum veterinário encontrado',
           'Não há cadastro de veterinário neste dispositivo. Cadastre-se primeiro.'
         );

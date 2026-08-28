@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, ScrollView, Pressable, Image,
-  StyleSheet, KeyboardAvoidingView, Platform, Alert,
+  StyleSheet, KeyboardAvoidingView, Platform,
   LayoutAnimation, UIManager,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ESPECIES } from '../constants';
 import { usePet } from '../context/PetContext';
 import { authService } from '../services/authService';
+import { alertar } from '../utils/alert';
 import { AppIcon } from '../components/AppIcon';
 import type { Pet } from '../types';
 
@@ -105,7 +106,7 @@ export default function OnboardingScreen() {
       await authService.registrar(email, senha, 'tutor');
       trocarConteudo(() => setEtapaCadastro('pet'));
     } catch {
-      Alert.alert('Erro', 'Não foi possível criar sua conta. Tente novamente.');
+      alertar('Erro', 'Não foi possível criar sua conta. Tente novamente.');
     } finally {
       setAutenticando(false);
     }
@@ -148,7 +149,7 @@ export default function OnboardingScreen() {
     try {
       await authService.login(email, senha, 'tutor');
       if (!onboardingConcluido) {
-        Alert.alert(
+        alertar(
           'Nenhum pet encontrado',
           'Não há pets cadastrados neste dispositivo ainda. Cadastre um pet para continuar.'
         );
