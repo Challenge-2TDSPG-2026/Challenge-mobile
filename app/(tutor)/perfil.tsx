@@ -58,7 +58,7 @@ export default function PerfilScreen() {
         {
           text: 'Resetar',
           style: 'destructive',
-          onPress: () => resetar().then(() => router.replace('/onboarding')),
+          onPress: () => resetar().then(() => router.replace('/login')),
         },
       ]
     );
@@ -72,7 +72,7 @@ export default function PerfilScreen() {
         style: 'destructive',
         onPress: async () => {
           await authService.logout();
-          router.replace('/onboarding');
+          router.replace('/login');
         },
       },
     ]);
