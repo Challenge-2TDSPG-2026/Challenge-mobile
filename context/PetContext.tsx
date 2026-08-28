@@ -232,7 +232,7 @@ export function PetProvider({ children }: { children: React.ReactNode }) {
 
   const nivelInfo: NivelInfo = useMemo(() => {
     const xpAtual = eventosConcluidosTotal * XP_POR_EVENTO;
-    let atual = NIVEIS[0];
+    let atual: (typeof NIVEIS)[number] = NIVEIS[0];
     let proximo: (typeof NIVEIS)[number] | null = null;
     for (let i = 0; i < NIVEIS.length; i++) {
       if (xpAtual >= NIVEIS[i].xpMin) {
