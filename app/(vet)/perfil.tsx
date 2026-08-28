@@ -37,7 +37,7 @@ export default function VetPerfilScreen() {
         style: 'destructive',
         onPress: async () => {
           await authService.logout();
-          router.replace('/vet-auth');
+          router.replace('/login');
         },
       },
     ]);
