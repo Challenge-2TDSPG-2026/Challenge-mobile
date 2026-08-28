@@ -5,6 +5,7 @@ export const STORAGE_KEYS = {
   ONBOARDING_CONCLUIDO: '@petcare:onboarding',
   NOTIFICACOES: '@petcare:notificacoes',
   SESSAO: '@petcare:sessao',
+  SESSAO_ENCERRADA: '@petcare:sessao_encerrada',
   RECOMPENSAS: '@petcare:recompensas',
   VETERINARIOS: '@petcare:veterinarios',
   VETERINARIO_ATIVO: '@petcare:veterinario_ativo',
