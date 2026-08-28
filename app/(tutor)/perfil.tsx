@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { usePet } from '../../context/PetContext';
 import { ESPECIES } from '../../constants';
+import { authService } from '../../services/authService';
 import { AppIcon } from '../../components/AppIcon';
 import type { Evento, StatusEventoExibicao } from '../../types';
 
@@ -60,6 +61,20 @@ export default function PerfilScreen() {
         },
       ]
     );
+  }
+
+  function handleSair() {
+    Alert.alert('Sair da conta?', 'Você precisará entrar novamente para acessar seus pets e eventos.', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Sair',
+        style: 'destructive',
+        onPress: async () => {
+          await authService.logout();
+          router.replace('/onboarding');
+        },
+      },
+    ]);
   }
 
   function handleRemoverPet(id: string, nome: string) {
@@ -197,6 +212,31 @@ export default function PerfilScreen() {
         />
       </View>
 
+      {/* Sobre */}
+      <Text style={s.secLabel}>Sobre</Text>
+      <View style={s.card}>
+        {[
+          ['Aplicativo', 'ClyvoVet'],
+          ['Versão', '1.0.0'],
+          ['Desafio', 'FIAP Challenge 2026'],
+          ['Expo SDK', '~54.0.0'],
+        ].map(([label, valor], i, arr) => (
+          <View key={label}>
+            <View style={s.infoRow}>
+              <Text style={s.infoLabel}>{label}</Text>
+              <Text style={s.infoValor}>{valor}</Text>
+            </View>
+            {i < arr.length - 1 && <View style={s.divisor} />}
+          </View>
+        ))}
+      </View>
+
+      {/* Sair */}
+      <Pressable style={s.btnSair} onPress={handleSair}>
+        <Ionicons name="log-out-outline" size={16} color={C.g700} />
+        <Text style={s.btnSairText}>Sair da conta</Text>
+      </Pressable>
+
       {/* Resetar */}
       <Pressable style={s.btnResetar} onPress={handleResetar}>
         <Ionicons name="trash-outline" size={16} color="#fff" />
@@ -324,6 +364,20 @@ const s = StyleSheet.create({
     paddingVertical: 14,
   },
   btnAddPetText: { fontSize: 13, fontWeight: '700', color: C.g600 },
+
+  btnSair: {
+    backgroundColor: C.white,
+    borderWidth: 1.5,
+    borderColor: C.border,
+    paddingVertical: 14,
+    borderRadius: 10,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  btnSairText: { color: C.g700, fontSize: 14, fontWeight: '700' },
 
   btnResetar: {
     backgroundColor: C.danger,
