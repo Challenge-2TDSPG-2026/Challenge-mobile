@@ -43,6 +43,10 @@ const transicaoIndicadorWeb = Platform.OS === 'web'
     } as any)
   : {};
 
+// ⚠️ DEV ONLY — REMOVER ANTES DA ENTREGA FINAL / QUANDO O BACKEND ESTIVER PRONTO
+const EMAIL_TESTE = 'vet.teste@petcare.dev';
+const SENHA_TESTE = '123456';
+
 export default function VetAuthScreen() {
   const router = useRouter();
   const { cadastrarVeterinario, veterinarios, veterinarioAtivoId, selecionarVeterinario } = useVet();
@@ -141,6 +145,38 @@ export default function VetAuthScreen() {
       if (!veterinarioAtivoId) {
         await selecionarVeterinario(veterinarios[0].id);
       }
+      router.replace('/(vet)');
+    } finally {
+      setAutenticando(false);
+    }
+  }
+
+  // ⚠️ DEV ONLY — REMOVER ANTES DA ENTREGA FINAL / QUANDO O BACKEND ESTIVER PRONTO
+  // O cadastro de veterinários também vai passar a ser feito pelo sistema de
+  // admin. Enquanto isso não existe, esse botão loga com uma conta de teste
+  // e, se não houver nenhum veterinário neste dispositivo, cria um registro
+  // de exemplo automaticamente para não travar o fluxo de desenvolvimento.
+  async function handleEntrarDev() {
+    setAutenticando(true);
+    try {
+      setEmail(EMAIL_TESTE);
+      setSenha(SENHA_TESTE);
+      setErrosConta({});
+      await authService.login(EMAIL_TESTE, SENHA_TESTE, 'veterinario');
+
+      if (veterinarios.length === 0) {
+        await cadastrarVeterinario({
+          id: Date.now().toString(),
+          nome: 'Dra. Ana Teste',
+          crmv: 'CRMV-SP 00000',
+          especialidade: ESPECIALIDADES_VET[0],
+          clinica: 'Clínica ClyvoVet (dev)',
+          criadoEm: new Date().toISOString(),
+        });
+      } else if (!veterinarioAtivoId) {
+        await selecionarVeterinario(veterinarios[0].id);
+      }
+
       router.replace('/(vet)');
     } finally {
       setAutenticando(false);
@@ -337,6 +373,17 @@ export default function VetAuthScreen() {
                   </Text>
                 </View>
 
+                {__DEV__ && (
+                  <Pressable
+                    style={[s.btnDev, autenticando && { opacity: 0.6 }]}
+                    onPress={handleEntrarDev}
+                    disabled={autenticando}
+                  >
+                    <AppIcon name="flash-outline" set="Ionicons" size={14} color="#e67e22" />
+                    <Text style={s.btnDevText}>Entrar automaticamente (dev)</Text>
+                  </Pressable>
+                )}
+
                 <Campo
                   label="E-mail *"
                   value={email}
@@ -466,6 +513,21 @@ const s = StyleSheet.create({
 
   btnVoltar: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 16, alignSelf: 'flex-start' },
   btnVoltarText: { fontSize: 12, fontWeight: '600', color: C.v600 },
+
+  btnDev: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderWidth: 1.5,
+    borderColor: '#e67e22',
+    borderStyle: 'dashed',
+    borderRadius: 10,
+    paddingVertical: 9,
+    marginBottom: 16,
+    backgroundColor: '#fff8f0',
+  },
+  btnDevText: { fontSize: 12, fontWeight: '700', color: '#e67e22' },
 
   previewCard: {
     backgroundColor: C.w50,
