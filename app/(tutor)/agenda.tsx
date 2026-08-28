@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, Alert } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { usePet } from '../../context/PetContext';
@@ -7,6 +7,7 @@ import { TIPOS_EVENTO, STATUS_EVENTO } from '../../constants';
 import { AppIcon } from '../../components/AppIcon';
 import { PetSwitcher } from '../../components/PetSwitcher';
 import { Calendario, dateKey } from '../../components/Calendario';
+import { alertar } from '../../utils/alert';
 import type { Evento, StatusEventoExibicao } from '../../types';
 
 const C = {
@@ -96,7 +97,7 @@ export default function AgendaScreen() {
   }
 
   function handleRemover(id: string) {
-    Alert.alert(
+    alertar(
       'Retirar solicitação?',
       'Isso cancela o pedido antes mesmo do veterinário confirmar. Essa ação não pode ser desfeita.',
       [

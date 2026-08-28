@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, Alert } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { usePet } from '../../context/PetContext';
 import { AppIcon } from '../../components/AppIcon';
 import { PetSwitcher } from '../../components/PetSwitcher';
+import { alertar } from '../../utils/alert';
 
 const C = {
   g900: '#0a2218', g800: '#0e3326', g700: '#155c3f', g600: '#1a7a52',
@@ -38,7 +39,7 @@ export default function RecompensasScreen() {
   );
 
   function handleResgatar(id: string) {
-    Alert.alert(
+    alertar(
       'Resgatar consulta grátis?',
       `Essa consulta grátis será usada para ${petAtivo?.nome ?? 'seu pet'}. Apresente esse resgate na clínica.`,
       [

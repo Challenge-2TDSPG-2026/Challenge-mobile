@@ -1,11 +1,12 @@
 import React, { useMemo } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, Switch, Alert } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet, Switch } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { usePet } from '../../context/PetContext';
 import { ESPECIES } from '../../constants';
 import { authService } from '../../services/authService';
 import { AppIcon } from '../../components/AppIcon';
+import { alertar } from '../../utils/alert';
 import type { Evento, StatusEventoExibicao } from '../../types';
 
 const C = {
@@ -49,7 +50,7 @@ export default function PerfilScreen() {
   const especieInfo = ESPECIES.find(e => e.valor === petAtivo?.especie);
 
   function handleResetar() {
-    Alert.alert(
+    alertar(
       'Resetar todos os dados?',
       'Isso apaga todos os pets, eventos e recompensas cadastrados. Essa ação não pode ser desfeita.',
       [
@@ -64,7 +65,7 @@ export default function PerfilScreen() {
   }
 
   function handleSair() {
-    Alert.alert('Sair da conta?', 'Você precisará entrar novamente para acessar seus pets e eventos.', [
+    alertar('Sair da conta?', 'Você precisará entrar novamente para acessar seus pets e eventos.', [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Sair',
@@ -79,10 +80,10 @@ export default function PerfilScreen() {
 
   function handleRemoverPet(id: string, nome: string) {
     if (pets.length <= 1) {
-      Alert.alert('Não é possível remover', 'Você precisa ter pelo menos 1 pet cadastrado.');
+      alertar('Não é possível remover', 'Você precisa ter pelo menos 1 pet cadastrado.');
       return;
     }
-    Alert.alert(
+    alertar(
       `Remover ${nome}?`,
       'Os eventos de saúde e recompensas desse pet também serão perdidos.',
       [
