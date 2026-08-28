@@ -1,9 +1,10 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, Modal, TextInput, Alert } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet, Modal, TextInput } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useVet } from '../../context/VetContext';
 import { ESPECIES, TIPOS_EVENTO, STATUS_EVENTO } from '../../constants';
 import { AppIcon } from '../../components/AppIcon';
+import { alertar } from '../../utils/alert';
 import type { Evento } from '../../types';
 
 const C = {
@@ -71,7 +72,7 @@ export default function FichaPacienteScreen() {
     if (!eventoSelecionadoId) return;
 
     if (modalTipo === 'cancelar' && !textoModal.trim()) {
-      Alert.alert('Motivo obrigatório', 'Informe o motivo do cancelamento antes de continuar.');
+      alertar('Motivo obrigatório', 'Informe o motivo do cancelamento antes de continuar.');
       return;
     }
 
