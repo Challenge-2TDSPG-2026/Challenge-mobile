@@ -1,9 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { PetProvider, usePet } from '../context/PetContext';
 import { VetProvider, useVet } from '../context/VetContext';
 import { authService } from '../services/authService';
-import type { TipoConta } from '../types';
 
 function RootNavigator() {
   const { onboardingConcluido, carregando: carregandoPet } = usePet();
@@ -11,54 +10,48 @@ function RootNavigator() {
   const router = useRouter();
   const segments = useSegments();
 
-  const [tipoContaSessao, setTipoContaSessao] = useState<TipoConta | null>(null);
-  const [verificandoSessao, setVerificandoSessao] = useState(true);
-
   useEffect(() => {
-    authService.getTipoContaAtual().then(tipo => {
-      setTipoContaSessao(tipo);
-      setVerificandoSessao(false);
-    });
-  }, []);
+    if (carregandoPet || carregandoVet) return;
 
-  useEffect(() => {
-    if (carregandoPet || carregandoVet || verificandoSessao) return;
+    let cancelado = false;
 
-    const grupoAtual = segments[0];
-    const emAuthTutor = grupoAtual === 'onboarding';
-    const emAuthVet = grupoAtual === 'vet-auth';
-    const emAreaTutor = grupoAtual === '(tutor)';
-    const emAreaVet = grupoAtual === '(vet)';
+    async function verificarEredirecionar() {
+      const [tipoContaSessao, logoutExplicito] = await Promise.all([
+        authService.getTipoContaAtual(),
+        authService.estaExplicitamenteDeslogado(),
+      ]);
+      if (cancelado) return;
 
-    // Rotas registradas no Stack raiz (fora dos grupos (tutor)/(vet)) que
-    // ainda assim pertencem ao fluxo logado de cada tipo de conta — modais
-    // do tutor e a ficha de paciente do veterinário. Sem isso, o guard abaixo
-    // interpretava a navegação para essas telas como "saiu da área" e
-    // expulsava o usuário de volta para a tela inicial a cada toque.
-    const emRotaTutor = grupoAtual === 'add-evento' || grupoAtual === 'add-pet';
-    const emRotaVet = grupoAtual === 'paciente';
+      const grupoAtual = segments[0];
+      const emAuthTutor = grupoAtual === 'onboarding';
+      const emAuthVet = grupoAtual === 'vet-auth';
+      const emAreaTutor = grupoAtual === '(tutor)';
+      const emAreaVet = grupoAtual === '(vet)';
+      const emRotaTutor = grupoAtual === 'add-evento' || grupoAtual === 'add-pet';
+      const emRotaVet = grupoAtual === 'paciente';
+      const tutorLogado =
+        onboardingConcluido &&
+        (tipoContaSessao === 'tutor' || (tipoContaSessao === null && !logoutExplicito));
+      const vetLogado = tipoContaSessao === 'veterinario' && veterinarioAtivo !== null;
 
-    // Compatibilidade: onboarding antigo não gravava Sessão (ver TODOs
-    // removidos no onboarding.tsx da Fase 5). Enquanto isso, tratamos
-    // "onboarding concluído sem sessão registrada" como tutor logado.
-    const tutorLogado = onboardingConcluido && (tipoContaSessao === 'tutor' || tipoContaSessao === null);
-    const vetLogado = tipoContaSessao === 'veterinario' && veterinarioAtivo !== null;
+      if (vetLogado) {
+        if (!emAreaVet && !emRotaVet) router.replace('/(vet)');
+        return;
+      }
 
-    if (vetLogado) {
-      if (!emAreaVet && !emRotaVet) router.replace('/(vet)');
-      return;
+      if (tutorLogado) {
+        if (!emAreaTutor && !emRotaTutor) router.replace('/(tutor)');
+        return;
+      }
+
+      if (!emAuthTutor && !emAuthVet) {
+        router.replace('/onboarding');
+      }
     }
 
-    if (tutorLogado) {
-      if (!emAreaTutor && !emRotaTutor) router.replace('/(tutor)');
-      return;
-    }
-
-    // Ninguém logado — manda para a tela de auth correspondente
-    if (!emAuthTutor && !emAuthVet) {
-      router.replace('/onboarding');
-    }
-  }, [onboardingConcluido, carregandoPet, carregandoVet, verificandoSessao, tipoContaSessao, veterinarioAtivo, segments]);
+    verificarEredirecionar();
+    return () => { cancelado = true; };
+  }, [onboardingConcluido, carregandoPet, carregandoVet, veterinarioAtivo, segments]);
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
