@@ -6,6 +6,7 @@ export const STORAGE_KEYS = {
   NOTIFICACOES: '@petcare:notificacoes',
   SESSAO: '@petcare:sessao',
   SESSAO_ENCERRADA: '@petcare:sessao_encerrada',
+  CONTAS_CONHECIDAS: '@petcare:contas_conhecidas',
   RECOMPENSAS: '@petcare:recompensas',
   VETERINARIOS: '@petcare:veterinarios',
   VETERINARIO_ATIVO: '@petcare:veterinario_ativo',

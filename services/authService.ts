@@ -1,25 +1,31 @@
-import { salvarSessao, carregarSessao, removerSessao, verificarLogoutExplicito } from '../storage/petStorage';
+import {
+  salvarSessao,
+  carregarSessao,
+  removerSessao,
+  verificarLogoutExplicito,
+  salvarContaConhecida,
+  buscarTipoContaConhecida,
+} from '../storage/petStorage';
 import type { Sessao } from '../storage/petStorage';
 import type { TipoConta } from '../types';
+export class ContaNaoEncontradaError extends Error {
+  constructor() {
+    super('Conta não encontrada');
+    this.name = 'ContaNaoEncontradaError';
+  }
+}
 
 export const authService = {
-  /**
-   * @param tipoConta 
-   */
-  async registrar(email: string, senha: string, tipoConta: TipoConta = 'tutor'): Promise<Sessao> {
-    const sessao: Sessao = {
-      email: email.trim().toLowerCase(),
-      token: `fake-token-${Date.now()}`,
-      criadaEm: new Date().toISOString(),
-      tipoConta,
-    };
-    await salvarSessao(sessao);
-    return sessao;
-  },
 
-  async login(email: string, senha: string, tipoConta: TipoConta = 'tutor'): Promise<Sessao> {
+  async login(email: string, senha: string): Promise<Sessao> {
+    const emailNormalizado = email.trim().toLowerCase();
+    const tipoConta = await buscarTipoContaConhecida(emailNormalizado);
+    if (!tipoConta) {
+      throw new ContaNaoEncontradaError();
+    }
+
     const sessao: Sessao = {
-      email: email.trim().toLowerCase(),
+      email: emailNormalizado,
       token: `fake-token-${Date.now()}`,
       criadaEm: new Date().toISOString(),
       tipoConta,
@@ -48,5 +54,10 @@ export const authService = {
 
   async estaExplicitamenteDeslogado(): Promise<boolean> {
     return verificarLogoutExplicito();
+  },
+
+  async loginDev(email: string, senha: string, tipoConta: TipoConta): Promise<Sessao> {
+    await salvarContaConhecida(email, tipoConta);
+    return this.login(email, senha);
   },
 };

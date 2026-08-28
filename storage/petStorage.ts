@@ -127,6 +127,31 @@ export async function verificarLogoutExplicito(): Promise<boolean> {
   return val === 'true';
 }
 
+/**
+ * Diretório local de e-mail → tipo de conta.
+ *
+ * Sem backend, o app não tem como saber se "fulano@email.com" é tutor ou
+ * veterinário — antes disso era decidido por qual tela de auth a pessoa
+ * abria (onboarding vs vet-auth). Com o login unificado, essa informação
+ * precisa vir de algum lugar: por enquanto, desse diretório local,
+ * populado pelo botão de login automático (dev) ou futuramente pelo
+ * sistema de admin/backend. Um e-mail que nunca apareceu aqui não
+ * consegue entrar — não existe mais cadastro dentro do app.
+ */
+export async function salvarContaConhecida(email: string, tipoConta: TipoConta): Promise<void> {
+  const raw = await AsyncStorage.getItem(STORAGE_KEYS.CONTAS_CONHECIDAS);
+  const mapa: Record<string, TipoConta> = raw ? JSON.parse(raw) : {};
+  mapa[email.trim().toLowerCase()] = tipoConta;
+  await AsyncStorage.setItem(STORAGE_KEYS.CONTAS_CONHECIDAS, JSON.stringify(mapa));
+}
+
+export async function buscarTipoContaConhecida(email: string): Promise<TipoConta | null> {
+  const raw = await AsyncStorage.getItem(STORAGE_KEYS.CONTAS_CONHECIDAS);
+  if (!raw) return null;
+  const mapa: Record<string, TipoConta> = JSON.parse(raw);
+  return mapa[email.trim().toLowerCase()] ?? null;
+}
+
 export async function salvarRecompensas(recompensas: Recompensa[]): Promise<void> {
   await AsyncStorage.setItem(STORAGE_KEYS.RECOMPENSAS, JSON.stringify(recompensas));
 }
@@ -184,6 +209,7 @@ export async function resetarTodosDados(): Promise<void> {
     STORAGE_KEYS.NOTIFICACOES,
     STORAGE_KEYS.SESSAO,
     STORAGE_KEYS.SESSAO_ENCERRADA,
+    STORAGE_KEYS.CONTAS_CONHECIDAS,
     STORAGE_KEYS.RECOMPENSAS,
     STORAGE_KEYS.VETERINARIOS,
     STORAGE_KEYS.VETERINARIO_ATIVO,
