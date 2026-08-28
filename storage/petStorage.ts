@@ -97,6 +97,8 @@ export interface Sessao {
 
 export async function salvarSessao(sessao: Sessao): Promise<void> {
   await AsyncStorage.setItem(STORAGE_KEYS.SESSAO, JSON.stringify(sessao));
+  // Um novo login/registro invalida qualquer logout anterior.
+  await AsyncStorage.removeItem(STORAGE_KEYS.SESSAO_ENCERRADA);
 }
 
 export async function carregarSessao(): Promise<Sessao | null> {
@@ -113,6 +115,16 @@ export async function carregarSessao(): Promise<Sessao | null> {
 
 export async function removerSessao(): Promise<void> {
   await AsyncStorage.removeItem(STORAGE_KEYS.SESSAO);
+  // Marca que o logout foi uma ação explícita do usuário — diferente de uma
+  // instalação legada que nunca teve Sessao gravada (ver compatibilidade em
+  // app/_layout.tsx). Sem essa marca, "sem sessão" seria ambíguo entre
+  // "nunca logou" e "acabou de sair", e o guard de rota reviveria o tutor.
+  await AsyncStorage.setItem(STORAGE_KEYS.SESSAO_ENCERRADA, 'true');
+}
+
+export async function verificarLogoutExplicito(): Promise<boolean> {
+  const val = await AsyncStorage.getItem(STORAGE_KEYS.SESSAO_ENCERRADA);
+  return val === 'true';
 }
 
 export async function salvarRecompensas(recompensas: Recompensa[]): Promise<void> {
@@ -171,6 +183,7 @@ export async function resetarTodosDados(): Promise<void> {
     STORAGE_KEYS.ONBOARDING_CONCLUIDO,
     STORAGE_KEYS.NOTIFICACOES,
     STORAGE_KEYS.SESSAO,
+    STORAGE_KEYS.SESSAO_ENCERRADA,
     STORAGE_KEYS.RECOMPENSAS,
     STORAGE_KEYS.VETERINARIOS,
     STORAGE_KEYS.VETERINARIO_ATIVO,
