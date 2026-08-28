@@ -1,10 +1,11 @@
 import React, { useMemo } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, Alert } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useVet } from '../../context/VetContext';
 import { authService } from '../../services/authService';
 import { AppIcon } from '../../components/AppIcon';
+import { alertar } from '../../utils/alert';
 
 const C = {
   g900: '#0a2218', g800: '#0e3326', g700: '#155c3f', g600: '#1a7a52',
@@ -29,7 +30,7 @@ export default function VetPerfilScreen() {
   );
 
   function handleSair() {
-    Alert.alert('Sair da conta?', 'Você precisará entrar novamente para acessar o portal do veterinário.', [
+    alertar('Sair da conta?', 'Você precisará entrar novamente para acessar o portal do veterinário.', [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Sair',
@@ -75,6 +76,24 @@ export default function VetPerfilScreen() {
           ['CRMV', veterinarioAtivo.crmv],
           ['Especialidade', veterinarioAtivo.especialidade],
           ['Clínica', veterinarioAtivo.clinica],
+        ].map(([label, valor], i, arr) => (
+          <View key={label}>
+            <View style={s.infoRow}>
+              <Text style={s.infoLabel}>{label}</Text>
+              <Text style={s.infoValor}>{valor}</Text>
+            </View>
+            {i < arr.length - 1 && <View style={s.divisor} />}
+          </View>
+        ))}
+      </View>
+
+      {/* Sobre */}
+      <Text style={s.secLabel}>Sobre</Text>
+      <View style={s.card}>
+        {[
+          ['Aplicativo', 'ClyvoVet — Portal do Veterinário'],
+          ['Versão', '1.0.0'],
+          ['Desafio', 'FIAP Challenge 2026'],
         ].map(([label, valor], i, arr) => (
           <View key={label}>
             <View style={s.infoRow}>

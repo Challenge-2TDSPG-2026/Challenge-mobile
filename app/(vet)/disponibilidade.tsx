@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, ScrollView, Pressable, TextInput, StyleSheet, Alert } from 'react-native';
+import { View, Text, ScrollView, Pressable, TextInput, StyleSheet } from 'react-native';
 import { useVet } from '../../context/VetContext';
 import { DIAS_SEMANA_LABEL } from '../../constants';
 import { AppIcon } from '../../components/AppIcon';
+import { alertar } from '../../utils/alert';
 import type { FaixaDisponibilidade, BloqueioAgenda } from '../../types';
 
 const C = {
@@ -89,7 +90,7 @@ export default function VetDisponibilidadeScreen() {
   }
 
   function handleRemoverFaixa(id: string) {
-    Alert.alert('Remover horário?', 'Essa faixa de disponibilidade deixará de aceitar solicitações.', [
+    alertar('Remover horário?', 'Essa faixa de disponibilidade deixará de aceitar solicitações.', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Remover', style: 'destructive', onPress: () => removerFaixaDisponibilidade(id) },
     ]);
@@ -115,7 +116,7 @@ export default function VetDisponibilidadeScreen() {
   }
 
   function handleRemoverBloqueio(id: string) {
-    Alert.alert('Remover bloqueio?', 'Esse dia voltará a ficar disponível para solicitações.', [
+    alertar('Remover bloqueio?', 'Esse dia voltará a ficar disponível para solicitações.', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Remover', style: 'destructive', onPress: () => removerBloqueio(id) },
     ]);

@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet, Modal, TextInput, Alert } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet, Modal, TextInput } from 'react-native';
 import { useVet } from '../../context/VetContext';
 import { TIPOS_EVENTO, STATUS_EVENTO } from '../../constants';
 import { AppIcon } from '../../components/AppIcon';
+import { alertar } from '../../utils/alert';
 
 const C = {
   g900: '#0a2218', g800: '#0e3326', g700: '#155c3f', g600: '#1a7a52',
@@ -58,7 +59,7 @@ export default function VetConsultasScreen() {
     if (!eventoSelecionadoId) return;
 
     if (modalTipo === 'cancelar' && !textoModal.trim()) {
-      Alert.alert('Motivo obrigatório', 'Informe o motivo do cancelamento antes de continuar.');
+      alertar('Motivo obrigatório', 'Informe o motivo do cancelamento antes de continuar.');
       return;
     }
 
