@@ -4,11 +4,13 @@ import {
   StyleSheet, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { ESPECIALIDADES_VET } from '../constants';
 import { usePet } from '../context/PetContext';
-import { authService } from '../services/authService';
+import { useVet } from '../context/VetContext';
+import { authService, ContaNaoEncontradaError } from '../services/authService';
 import { alertar } from '../utils/alert';
 import { AppIcon } from '../components/AppIcon';
-import type { Pet } from '../types';
+import type { Pet, Veterinario } from '../types';
 
 const C = {
   g900: '#0a2218', g800: '#0e3326', g700: '#155c3f', g600: '#1a7a52',
@@ -19,12 +21,13 @@ const C = {
 };
 
 // ⚠️ DEV ONLY — REMOVER ANTES DA ENTREGA FINAL / QUANDO O BACKEND ESTIVER PRONTO
-// O cadastro de tutores passou a ser feito pelo sistema de admin — o app só
-// faz login. Esse botão evita travar o fluxo de desenvolvimento local
-// enquanto não há backend nem admin integrados: ele loga com uma conta de
-// teste e, se ainda não houver nenhum pet neste dispositivo, cria um pet
-// de exemplo automaticamente.
-const EMAIL_TESTE = 'teste@petcare.dev';
+// O cadastro de contas (tutor e veterinário) passou a ser feito pelo sistema
+// de admin — o app só faz login, e o e-mail informado é quem determina para
+// onde a pessoa é levada. Sem backend, esses e-mails de teste populam o
+// diretório local de contas conhecidas (ver authService.loginDev) para o
+// desenvolvimento não ficar travado sem uma conta real pra usar.
+const EMAIL_TESTE_TUTOR = 'tutor.teste@petcare.dev';
+const EMAIL_TESTE_VET = 'vet.teste@petcare.dev';
 const SENHA_TESTE = '123456';
 
 function criarPetDev(): Pet {
@@ -38,9 +41,21 @@ function criarPetDev(): Pet {
   };
 }
 
-export default function OnboardingScreen() {
+function criarVeterinarioDev(): Veterinario {
+  return {
+    id: Date.now().toString(),
+    nome: 'Dra. Ana Teste',
+    crmv: 'CRMV-SP 00000',
+    especialidade: ESPECIALIDADES_VET[0],
+    clinica: 'Clínica ClyvoVet (dev)',
+    criadoEm: new Date().toISOString(),
+  };
+}
+
+export default function LoginScreen() {
   const router = useRouter();
   const { adicionarPet, onboardingConcluido } = usePet();
+  const { veterinarios, veterinarioAtivoId, cadastrarVeterinario, selecionarVeterinario } = useVet();
 
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
@@ -55,17 +70,62 @@ export default function OnboardingScreen() {
     return Object.keys(e).length === 0;
   }
 
+  // Depois de logar, o tipoConta retornado pela sessão é quem decide para
+  // onde a pessoa vai — não existe mais escolha manual de "sou tutor" ou
+  // "sou veterinário" em lugar nenhum da tela.
+  async function irParaAreaDaConta(tipoConta: 'tutor' | 'veterinario') {
+    if (tipoConta === 'veterinario') {
+      if (veterinarios.length === 0) {
+        alertar(
+          'Nenhum veterinário encontrado',
+          'Não há dados de veterinário cadastrados neste dispositivo ainda. Fale com a administração.'
+        );
+        return;
+      }
+      if (!veterinarioAtivoId) {
+        await selecionarVeterinario(veterinarios[0].id);
+      }
+      router.replace('/(vet)');
+      return;
+    }
+
+    if (!onboardingConcluido) {
+      alertar(
+        'Nenhum pet encontrado',
+        'Não há pets cadastrados neste dispositivo ainda. Fale com a administração para cadastrar seu pet.'
+      );
+      return;
+    }
+    router.replace('/(tutor)');
+  }
+
   async function handleEntrar() {
     if (!validarConta()) return;
     setAutenticando(true);
     try {
-      await authService.login(email, senha, 'tutor');
+      const sessao = await authService.login(email, senha);
+      await irParaAreaDaConta(sessao.tipoConta);
+    } catch (erro) {
+      if (erro instanceof ContaNaoEncontradaError) {
+        alertar('E-mail não encontrado', 'Verifique o e-mail informado ou fale com a administração para criar sua conta.');
+      } else {
+        alertar('Não foi possível entrar', 'Tente novamente em instantes.');
+      }
+    } finally {
+      setAutenticando(false);
+    }
+  }
+
+  // ⚠️ DEV ONLY — REMOVER ANTES DA ENTREGA FINAL / QUANDO O BACKEND ESTIVER PRONTO
+  async function handleEntrarDevTutor() {
+    setAutenticando(true);
+    try {
+      setEmail(EMAIL_TESTE_TUTOR);
+      setSenha(SENHA_TESTE);
+      setErrosConta({});
+      await authService.loginDev(EMAIL_TESTE_TUTOR, SENHA_TESTE, 'tutor');
       if (!onboardingConcluido) {
-        alertar(
-          'Nenhum pet encontrado',
-          'Não há pets cadastrados neste dispositivo ainda. Fale com a administração para cadastrar seu pet.'
-        );
-        return;
+        await adicionarPet(criarPetDev());
       }
       router.replace('/(tutor)');
     } finally {
@@ -74,17 +134,19 @@ export default function OnboardingScreen() {
   }
 
   // ⚠️ DEV ONLY — REMOVER ANTES DA ENTREGA FINAL / QUANDO O BACKEND ESTIVER PRONTO
-  async function handleEntrarDev() {
+  async function handleEntrarDevVet() {
     setAutenticando(true);
     try {
-      setEmail(EMAIL_TESTE);
+      setEmail(EMAIL_TESTE_VET);
       setSenha(SENHA_TESTE);
       setErrosConta({});
-      await authService.login(EMAIL_TESTE, SENHA_TESTE, 'tutor');
-      if (!onboardingConcluido) {
-        await adicionarPet(criarPetDev());
+      await authService.loginDev(EMAIL_TESTE_VET, SENHA_TESTE, 'veterinario');
+      if (veterinarios.length === 0) {
+        await cadastrarVeterinario(criarVeterinarioDev());
+      } else if (!veterinarioAtivoId) {
+        await selecionarVeterinario(veterinarios[0].id);
       }
-      router.replace('/(tutor)');
+      router.replace('/(vet)');
     } finally {
       setAutenticando(false);
     }
@@ -116,19 +178,30 @@ export default function OnboardingScreen() {
             <View style={s.loginIntro}>
               <AppIcon name="lock-closed-outline" set="Ionicons" size={22} color={C.g600} />
               <Text style={s.loginIntroText}>
-                Entre com sua conta para acessar os pets já cadastrados.
+                Entre com sua conta de tutor ou veterinário. O e-mail é quem
+                determina para onde você vai.
               </Text>
             </View>
 
             {__DEV__ && (
-              <Pressable
-                style={[s.btnDev, autenticando && { opacity: 0.6 }]}
-                onPress={handleEntrarDev}
-                disabled={autenticando}
-              >
-                <AppIcon name="flash-outline" set="Ionicons" size={14} color="#e67e22" />
-                <Text style={s.btnDevText}>Entrar automaticamente (dev)</Text>
-              </Pressable>
+              <View style={s.devRow}>
+                <Pressable
+                  style={[s.btnDev, autenticando && { opacity: 0.6 }]}
+                  onPress={handleEntrarDevTutor}
+                  disabled={autenticando}
+                >
+                  <AppIcon name="paw" set="MaterialCommunityIcons" size={14} color="#e67e22" />
+                  <Text style={s.btnDevText}>Entrar como tutor (dev)</Text>
+                </Pressable>
+                <Pressable
+                  style={[s.btnDev, autenticando && { opacity: 0.6 }]}
+                  onPress={handleEntrarDevVet}
+                  disabled={autenticando}
+                >
+                  <AppIcon name="medical-bag" set="MaterialCommunityIcons" size={14} color="#e67e22" />
+                  <Text style={s.btnDevText}>Entrar como vet (dev)</Text>
+                </Pressable>
+              </View>
             )}
 
             <Campo
@@ -163,11 +236,6 @@ export default function OnboardingScreen() {
 
           </View>
         </View>
-
-        <Pressable style={s.linkVet} onPress={() => router.push('/vet-auth')}>
-          <AppIcon name="medical-bag" set="MaterialCommunityIcons" size={14} color={C.g200} />
-          <Text style={s.linkVetText}>É veterinário? Acesse o portal do veterinário</Text>
-        </Pressable>
 
       </ScrollView>
     </KeyboardAvoidingView>
@@ -230,7 +298,9 @@ const s = StyleSheet.create({
 
   authForm: { padding: 24 },
 
+  devRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
   btnDev: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -240,10 +310,10 @@ const s = StyleSheet.create({
     borderStyle: 'dashed',
     borderRadius: 10,
     paddingVertical: 9,
-    marginBottom: 16,
+    paddingHorizontal: 6,
     backgroundColor: '#fff8f0',
   },
-  btnDevText: { fontSize: 12, fontWeight: '700', color: '#e67e22' },
+  btnDevText: { fontSize: 11, fontWeight: '700', color: '#e67e22', textAlign: 'center' },
 
   fg: { marginBottom: 16 },
   fl: {
@@ -291,13 +361,4 @@ const s = StyleSheet.create({
     textAlign: 'center',
     marginTop: 12,
   },
-
-  linkVet: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    marginTop: 20,
-  },
-  linkVetText: { fontSize: 12, fontWeight: '600', color: C.g200 },
 });

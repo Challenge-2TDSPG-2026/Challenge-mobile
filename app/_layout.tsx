@@ -23,8 +23,7 @@ function RootNavigator() {
       if (cancelado) return;
 
       const grupoAtual = segments[0];
-      const emAuthTutor = grupoAtual === 'onboarding';
-      const emAuthVet = grupoAtual === 'vet-auth';
+      const emAuthScreen = grupoAtual === 'login';
       const emAreaTutor = grupoAtual === '(tutor)';
       const emAreaVet = grupoAtual === '(vet)';
       const emRotaTutor = grupoAtual === 'add-evento' || grupoAtual === 'add-pet';
@@ -44,8 +43,9 @@ function RootNavigator() {
         return;
       }
 
-      if (!emAuthTutor && !emAuthVet) {
-        router.replace('/onboarding');
+      // Ninguém logado — manda para a tela de login única
+      if (!emAuthScreen) {
+        router.replace('/login');
       }
     }
 
@@ -55,8 +55,7 @@ function RootNavigator() {
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="onboarding" />
-      <Stack.Screen name="vet-auth" />
+      <Stack.Screen name="login" />
       <Stack.Screen name="(tutor)" />
       <Stack.Screen name="(vet)" />
       <Stack.Screen name="add-evento" options={{ presentation: 'modal', headerShown: false }} />
