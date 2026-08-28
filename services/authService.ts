@@ -1,4 +1,4 @@
-import { salvarSessao, carregarSessao, removerSessao } from '../storage/petStorage';
+import { salvarSessao, carregarSessao, removerSessao, verificarLogoutExplicito } from '../storage/petStorage';
 import type { Sessao } from '../storage/petStorage';
 import type { TipoConta } from '../types';
 
@@ -44,5 +44,9 @@ export const authService = {
   async getTipoContaAtual(): Promise<TipoConta | null> {
     const sessao = await carregarSessao();
     return sessao?.tipoConta ?? null;
+  },
+
+  async estaExplicitamenteDeslogado(): Promise<boolean> {
+    return verificarLogoutExplicito();
   },
 };
