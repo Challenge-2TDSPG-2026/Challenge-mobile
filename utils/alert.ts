@@ -1,32 +1,31 @@
 import { Alert, Platform } from 'react-native';
 
-export interface AlertButton {
-  text?: string;
-  style?: 'default' | 'cancel' | 'destructive';
-  onPress?: () => void;
+export function alertar(titulo: string, mensagem?: string): void {
+  if (Platform.OS === 'web') {
+    window.alert(mensagem ? `${titulo}\n\n${mensagem}` : titulo);
+    return;
+  }
+  Alert.alert(titulo, mensagem);
 }
 
-export function alertar(title: string, message?: string, buttons?: AlertButton[]): void {
-  if (Platform.OS !== 'web') {
-    Alert.alert(title, message, buttons as any);
+interface OpcaoConfirmar {
+  texto: string;
+  estilo?: 'default' | 'cancel' | 'destructive';
+  aoConfirmar?: () => void;
+}
+
+export function confirmar(titulo: string, mensagem: string, opcoes: OpcaoConfirmar[]): void {
+  if (Platform.OS === 'web') {
+    const confirmou = window.confirm(mensagem ? `${titulo}\n\n${mensagem}` : titulo);
+    const opcaoAlvo = confirmou
+      ? opcoes.find(o => o.estilo !== 'cancel')
+      : opcoes.find(o => o.estilo === 'cancel');
+    opcaoAlvo?.aoConfirmar?.();
     return;
   }
-
-  const texto = message ? `${title}\n\n${message}` : title;
-
-  if (!buttons || buttons.length <= 1) {
-    window.alert(texto);
-    buttons?.[0]?.onPress?.();
-    return;
-  }
-
-  const botaoCancelar = buttons.find(b => b.style === 'cancel');
-  const botaoConfirmar = buttons.find(b => b.style !== 'cancel') ?? buttons[buttons.length - 1];
-
-  const confirmado = window.confirm(texto);
-  if (confirmado) {
-    botaoConfirmar?.onPress?.();
-  } else {
-    botaoCancelar?.onPress?.();
-  }
+  Alert.alert(
+    titulo,
+    mensagem,
+    opcoes.map(o => ({ text: o.texto, style: o.estilo, onPress: o.aoConfirmar }))
+  );
 }
