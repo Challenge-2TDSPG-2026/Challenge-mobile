@@ -1,85 +1,64 @@
 import React, { useEffect } from 'react';
 import { Stack, useRouter, useSegments } from 'expo-router';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { AuthProvider, useAuth } from '../context/AuthContext';
 import { PetProvider, usePet } from '../context/PetContext';
-import { VetProvider, useVet } from '../context/VetContext';
-import { authService } from '../services/authService';
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      staleTime: 30_000,
+    },
+  },
+});
 
 function RootNavigator() {
+  const { autenticado, carregando: carregandoAuth } = useAuth();
   const { onboardingConcluido, carregando: carregandoPet } = usePet();
-  const { veterinarioAtivo, carregando: carregandoVet } = useVet();
   const router = useRouter();
   const segments = useSegments();
 
+  const carregando = carregandoAuth || carregandoPet;
+
   useEffect(() => {
-    if (carregandoPet || carregandoVet) return;
+    if (carregando) return;
 
-    let cancelado = false;
+    const inOnboarding = segments[0] === 'onboarding';
 
-    async function verificarEredirecionar() {
-      const [tipoContaSessao, logoutExplicito] = await Promise.all([
-        authService.getTipoContaAtual(),
-        authService.estaExplicitamenteDeslogado(),
-      ]);
-      if (cancelado) return;
-
-      const grupoAtual = segments[0];
-      const emAuthScreen = grupoAtual === 'login';
-      const emAreaTutor = grupoAtual === '(tutor)';
-      const emAreaVet = grupoAtual === '(vet)';
-      const emRotaTutor = grupoAtual === 'add-evento' || grupoAtual === 'add-pet';
-      const emRotaVet = grupoAtual === 'paciente';
-      const tutorLogado =
-        onboardingConcluido &&
-        (tipoContaSessao === 'tutor' || (tipoContaSessao === null && !logoutExplicito));
-      const vetLogado = tipoContaSessao === 'veterinario' && veterinarioAtivo !== null;
-
-      if (vetLogado) {
-        if (!emAreaVet && !emRotaVet) router.replace('/(vet)');
-        return;
-      }
-
-      if (tutorLogado) {
-        if (!emAreaTutor && !emRotaTutor) router.replace('/(tutor)');
-        return;
-      }
-
-      // Ninguém logado — manda para a tela de login única
-      if (!emAuthScreen) {
-        router.replace('/login');
-      }
+    if (!autenticado) {
+      if (!inOnboarding) router.replace('/onboarding');
+      return;
     }
 
-    verificarEredirecionar();
-    return () => { cancelado = true; };
-  }, [onboardingConcluido, carregandoPet, carregandoVet, veterinarioAtivo, segments]);
+    if (!onboardingConcluido) {
+      if (!inOnboarding) router.replace('/onboarding');
+      return;
+    }
+
+    if (inOnboarding) {
+      router.replace('/(tabs)');
+    }
+  }, [autenticado, onboardingConcluido, carregando, segments]);
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="login" />
-      <Stack.Screen name="(tutor)" />
-      <Stack.Screen name="(vet)" />
+      <Stack.Screen name="onboarding" />
+      <Stack.Screen name="(tabs)" />
       <Stack.Screen name="add-evento" options={{ presentation: 'modal', headerShown: false }} />
       <Stack.Screen name="add-pet" options={{ presentation: 'modal', headerShown: false }} />
-      <Stack.Screen
-        name="paciente/[id]"
-        options={{
-          headerShown: true,
-          title: 'Ficha do Paciente',
-          headerStyle: { backgroundColor: '#0e3326' },
-          headerTintColor: '#fff',
-          headerTitleStyle: { fontWeight: '700' },
-        }}
-      />
     </Stack>
   );
 }
 
 export default function RootLayout() {
   return (
-    <PetProvider>
-      <VetProvider>
-        <RootNavigator />
-      </VetProvider>
-    </PetProvider>
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <PetProvider>
+          <RootNavigator />
+        </PetProvider>
+      </AuthProvider>
+    </QueryClientProvider>
   );
 }
