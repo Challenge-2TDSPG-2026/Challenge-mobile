@@ -1,4 +1,3 @@
-export type TipoConta = 'tutor' | 'veterinario';
 export interface Pet {
   id: string;
   nome: string;
@@ -7,50 +6,53 @@ export interface Pet {
   dataNascimento: string;
   peso: string;
 }
-export type StatusEvento = 'solicitado' | 'confirmado' | 'concluido' | 'cancelado';
-export type StatusEventoExibicao = StatusEvento | 'atrasado';
-export interface Evento {
+
+export type StatusEvento = 'SOLICITADO' | 'CONFIRMADO' | 'CONCLUIDO' | 'CANCELADO';
+
+export interface TipoEvento {
   id: string;
-  petId: string;
-  tipo: 'vacina' | 'vermifugo' | 'consulta' | 'medicamento' | 'checkup' | 'outro';
-  titulo: string;
-  descricao?: string;
-  data: string;
-  status: StatusEvento;
-  criadoEm: string;
-  veterinarioId?: string;
-  confirmadoEm?: string;
-  concluidoEm?: string;
-  canceladoEm?: string;
-  motivoCancelamento?: string;
-  observacoesClinicas?: string;
+  nome: string;
+  categoria: 'PREVENTIVO' | 'TERAPEUTICO' | 'BEM_ESTAR' | 'EMERGENCIA' | null;
+  pontos: number;
 }
-export interface Recompensa {
-  id: string;
-  petId: string;
-  criadaEm: string;
-  resgatada: boolean;
-  resgatadaEm?: string;
-  validadaPorVeterinarioId?: string;
-}
+
 export interface Veterinario {
   id: string;
   nome: string;
   crmv: string;
-  especialidade: string;
-  clinica: string;
-  criadoEm: string;
+  idClinica: string | null;
+  nomeClinica: string | null;
 }
-export interface FaixaDisponibilidade {
+
+export interface Evento {
   id: string;
-  veterinarioId: string;
-  diaSemana: 0 | 1 | 2 | 3 | 4 | 5 | 6; 
-  horaInicio: string; 
-  horaFim: string;   
+  petId: string;
+  status: StatusEvento;
+  idTipoEvento: string;
+  nomeTipoEvento: string;
+  categoriaTipoEvento: TipoEvento['categoria'];
+  idVeterinario: string;
+  nomeVeterinario: string;
+  data: string; // ISO (yyyy-MM-dd)
+  observacao?: string;
+  motivoCancelamento?: string;
+  custo: number;
 }
-export interface BloqueioAgenda {
+
+export interface Recompensa {
   id: string;
-  veterinarioId: string;
-  data: string; 
-  motivo?: string;
+  nome: string;
+  descricao?: string;
+  custoPontos: number;
+  tipo: 'PRODUTO' | 'CUPOM_DESCONTO';
+  ativa: boolean;
+}
+
+export interface Resgate {
+  id: string;
+  status: 'PENDENTE' | 'VALIDADO' | 'NEGADO';
+  dataResgate: string;
+  nomeRecompensa: string;
+  custoPontos: number;
+  nomeVeterinarioValidador?: string;
 }
