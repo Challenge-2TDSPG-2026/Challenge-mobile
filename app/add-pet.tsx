@@ -6,6 +6,8 @@ import {
 import { useRouter, Stack } from 'expo-router';
 import { ESPECIES } from '../constants';
 import { usePet } from '../context/PetContext';
+import { ApiError } from '../services/api/httpClient';
+import { alertar } from '../utils/alert';
 import { AppIcon } from '../components/AppIcon';
 import type { Pet } from '../types';
 
@@ -22,16 +24,19 @@ function formatarData(text: string): string {
   return `${n.slice(0, 2)}/${n.slice(2, 4)}/${n.slice(4, 8)}`;
 }
 
+function mensagemDeErro(e: unknown, fallback: string): string {
+  return e instanceof ApiError ? e.message : fallback;
+}
+
 export default function AddPetScreen() {
   const router = useRouter();
-  const { adicionarPet } = usePet();
+  const { adicionarPet, salvandoPet } = usePet();
   const [nome, setNome] = useState('');
   const [especie, setEspecie] = useState<Pet['especie']>('cachorro');
   const [raca, setRaca] = useState('');
   const [dataNascimento, setDataNascimento] = useState('');
   const [peso, setPeso] = useState('');
   const [erros, setErros] = useState<Record<string, string>>({});
-  const [salvando, setSalvando] = useState(false);
 
   function validar(): boolean {
     const e: Record<string, string> = {};
@@ -50,18 +55,17 @@ export default function AddPetScreen() {
 
   async function handleSalvar() {
     if (!validar()) return;
-    setSalvando(true);
     try {
       const pet: Pet = {
-        id: Date.now().toString(),
+        id: '', // gerado pela API — ignorado no payload de criação
         nome: nome.trim(), especie, raca: raca.trim(),
         dataNascimento: parsarData(dataNascimento), peso: peso.trim(),
       };
       await adicionarPet(pet);
       router.back();
-    } catch {
-      // silent
-    } finally { setSalvando(false); }
+    } catch (e) {
+      alertar('Não foi possível cadastrar o pet', mensagemDeErro(e, 'Tente novamente em instantes.'));
+    }
   }
 
   const especieInfo = ESPECIES.find(e => e.valor === especie);
@@ -140,12 +144,12 @@ export default function AddPetScreen() {
           </View>
 
           <Pressable
-            style={[s.btnSalvar, salvando && { opacity: 0.6 }]}
+            style={[s.btnSalvar, salvandoPet && { opacity: 0.6 }]}
             onPress={handleSalvar}
-            disabled={salvando}
+            disabled={salvandoPet}
           >
             <Text style={s.btnSalvarText}>
-              {salvando ? 'Salvando...' : 'Cadastrar pet →'}
+              {salvandoPet ? 'Salvando...' : 'Cadastrar pet →'}
             </Text>
           </Pressable>
 
@@ -174,7 +178,7 @@ function Campo({ label, value, onChangeText, placeholder, keyboardType, maxLengt
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.w50 },
+  container: { flex: 1, backgroundColor: '#fafaf8' },
   content: { padding: 20, paddingBottom: 40 },
 
   previewCard: {
