@@ -1,20 +1,75 @@
-import { salvarPets, carregarPets, salvarPetAtivoId, carregarPetAtivoId } from '../storage/petStorage';
+import { api } from './api/httpClient';
+import { salvarPetAtivoId, carregarPetAtivoId } from '../storage/petStorage';
 import type { Pet } from '../types';
+
+const ESPECIE_APP_PARA_API: Record<Pet['especie'], string> = {
+  cachorro: 'CAO',
+  gato: 'GATO',
+  pássaro: 'AVE',
+  outro: 'OUTRO',
+};
+
+function especieApiParaApp(nmEspecie: string | null | undefined): Pet['especie'] {
+  const chave = (nmEspecie ?? '').trim().toLowerCase();
+  if (chave === 'cão' || chave === 'cao') return 'cachorro';
+  if (chave === 'gato') return 'gato';
+  if (chave === 'ave') return 'pássaro';
+  return 'outro';
+}
+
+interface PetResponseApi {
+  idPet: number;
+  nmPet: string;
+  especie: string | null;
+  raca: string | null;
+  dtNascimento: string;
+  idadeAnos: number;
+  peso: number | null;
+  idTutor: number | null;
+}
+
+function paraPetApp(dto: PetResponseApi): Pet {
+  return {
+    id: String(dto.idPet),
+    nome: dto.nmPet,
+    especie: especieApiParaApp(dto.especie),
+    raca: dto.raca ?? '',
+    dataNascimento: dto.dtNascimento,
+    peso: dto.peso != null ? String(dto.peso) : '',
+  };
+}
+
+function paraRequestApi(pet: Pet) {
+  return {
+    nmPet: pet.nome,
+    especie: ESPECIE_APP_PARA_API[pet.especie],
+    especieOutro: pet.especie === 'outro' ? (pet.raca || 'Outro') : undefined,
+    raca: pet.raca,
+    dtNascimento: pet.dataNascimento.slice(0, 10),
+    peso: pet.peso ? parseFloat(pet.peso.replace(',', '.')) : null,
+  };
+}
 
 export const petService = {
   async listarPets(): Promise<Pet[]> {
-    return carregarPets();
+    const dtos = await api.get<PetResponseApi[]>('/pets');
+    return dtos.map(paraPetApp);
   },
-  async adicionarPet(pet: Pet, listaAtual: Pet[]): Promise<Pet[]> {
-    const novos = [...listaAtual, pet];
-    await salvarPets(novos);
-    return novos;
+
+  async criarPet(pet: Pet): Promise<Pet> {
+    const dto = await api.post<PetResponseApi>('/pets', paraRequestApi(pet));
+    return paraPetApp(dto);
   },
-  async removerPet(id: string, listaAtual: Pet[]): Promise<Pet[]> {
-    const novos = listaAtual.filter(p => p.id !== id);
-    await salvarPets(novos);
-    return novos;
+
+  async atualizarPet(pet: Pet): Promise<Pet> {
+    const dto = await api.put<PetResponseApi>(`/pets/${pet.id}`, paraRequestApi(pet));
+    return paraPetApp(dto);
   },
+
+  async removerPet(id: string): Promise<void> {
+    await api.delete(`/pets/${id}`);
+  },
+
   async getPetAtivoId(): Promise<string | null> {
     return carregarPetAtivoId();
   },
