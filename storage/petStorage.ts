@@ -1,25 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STORAGE_KEYS } from '../constants';
-import type {
-  Pet,
-  Evento,
-  StatusEvento,
-  Recompensa,
-  TipoConta,
-  Veterinario,
-  FaixaDisponibilidade,
-  BloqueioAgenda,
-} from '../types';
-
-export async function salvarPets(pets: Pet[]): Promise<void> {
-  await AsyncStorage.setItem(STORAGE_KEYS.PETS, JSON.stringify(pets));
-}
-
-export async function carregarPets(): Promise<Pet[]> {
-  const raw = await AsyncStorage.getItem(STORAGE_KEYS.PETS);
-  if (!raw) return [];
-  return JSON.parse(raw) as Pet[];
-}
 
 export async function salvarPetAtivoId(id: string): Promise<void> {
   await AsyncStorage.setItem(STORAGE_KEYS.PET_ATIVO, id);
@@ -27,46 +7,6 @@ export async function salvarPetAtivoId(id: string): Promise<void> {
 
 export async function carregarPetAtivoId(): Promise<string | null> {
   return AsyncStorage.getItem(STORAGE_KEYS.PET_ATIVO);
-}
-
-function migrarStatusEvento(status: string): StatusEvento {
-  switch (status) {
-    case 'pendente':
-    case 'atrasado':
-      return 'solicitado';
-    case 'concluido':
-      return 'concluido';
-    case 'solicitado':
-    case 'confirmado':
-    case 'cancelado':
-      return status as StatusEvento;
-    default:
-      return 'solicitado';
-  }
-}
-
-export async function salvarEventos(eventos: Evento[]): Promise<void> {
-  await AsyncStorage.setItem(STORAGE_KEYS.EVENTOS, JSON.stringify(eventos));
-}
-
-export async function carregarEventos(): Promise<Evento[]> {
-  const raw = await AsyncStorage.getItem(STORAGE_KEYS.EVENTOS);
-  if (!raw) return [];
-
-  const eventos = JSON.parse(raw) as Evento[];
-  let precisouMigrar = false;
-
-  const eventosMigrados = eventos.map(e => {
-    const statusMigrado = migrarStatusEvento(e.status as unknown as string);
-    if (statusMigrado !== e.status) precisouMigrar = true;
-    return { ...e, status: statusMigrado };
-  });
-
-  if (precisouMigrar) {
-    await salvarEventos(eventosMigrados);
-  }
-
-  return eventosMigrados;
 }
 
 export async function marcarOnboardingConcluido(): Promise<void> {
@@ -88,132 +28,10 @@ export async function carregarPreferencias(): Promise<Record<string, boolean>> {
   return JSON.parse(raw);
 }
 
-export interface Sessao {
-  email: string;
-  token: string;
-  criadaEm: string;
-  tipoConta: TipoConta;
-}
-
-export async function salvarSessao(sessao: Sessao): Promise<void> {
-  await AsyncStorage.setItem(STORAGE_KEYS.SESSAO, JSON.stringify(sessao));
-  // Um novo login/registro invalida qualquer logout anterior.
-  await AsyncStorage.removeItem(STORAGE_KEYS.SESSAO_ENCERRADA);
-}
-
-export async function carregarSessao(): Promise<Sessao | null> {
-  const raw = await AsyncStorage.getItem(STORAGE_KEYS.SESSAO);
-  if (!raw) return null;
-  const sessao = JSON.parse(raw) as Partial<Sessao>;
-  return {
-    email: sessao.email ?? '',
-    token: sessao.token ?? '',
-    criadaEm: sessao.criadaEm ?? new Date().toISOString(),
-    tipoConta: sessao.tipoConta ?? 'tutor',
-  };
-}
-
-export async function removerSessao(): Promise<void> {
-  await AsyncStorage.removeItem(STORAGE_KEYS.SESSAO);
-  // Marca que o logout foi uma ação explícita do usuário — diferente de uma
-  // instalação legada que nunca teve Sessao gravada (ver compatibilidade em
-  // app/_layout.tsx). Sem essa marca, "sem sessão" seria ambíguo entre
-  // "nunca logou" e "acabou de sair", e o guard de rota reviveria o tutor.
-  await AsyncStorage.setItem(STORAGE_KEYS.SESSAO_ENCERRADA, 'true');
-}
-
-export async function verificarLogoutExplicito(): Promise<boolean> {
-  const val = await AsyncStorage.getItem(STORAGE_KEYS.SESSAO_ENCERRADA);
-  return val === 'true';
-}
-
-/**
- * Diretório local de e-mail → tipo de conta.
- *
- * Sem backend, o app não tem como saber se "fulano@email.com" é tutor ou
- * veterinário — antes disso era decidido por qual tela de auth a pessoa
- * abria (onboarding vs vet-auth). Com o login unificado, essa informação
- * precisa vir de algum lugar: por enquanto, desse diretório local,
- * populado pelo botão de login automático (dev) ou futuramente pelo
- * sistema de admin/backend. Um e-mail que nunca apareceu aqui não
- * consegue entrar — não existe mais cadastro dentro do app.
- */
-export async function salvarContaConhecida(email: string, tipoConta: TipoConta): Promise<void> {
-  const raw = await AsyncStorage.getItem(STORAGE_KEYS.CONTAS_CONHECIDAS);
-  const mapa: Record<string, TipoConta> = raw ? JSON.parse(raw) : {};
-  mapa[email.trim().toLowerCase()] = tipoConta;
-  await AsyncStorage.setItem(STORAGE_KEYS.CONTAS_CONHECIDAS, JSON.stringify(mapa));
-}
-
-export async function buscarTipoContaConhecida(email: string): Promise<TipoConta | null> {
-  const raw = await AsyncStorage.getItem(STORAGE_KEYS.CONTAS_CONHECIDAS);
-  if (!raw) return null;
-  const mapa: Record<string, TipoConta> = JSON.parse(raw);
-  return mapa[email.trim().toLowerCase()] ?? null;
-}
-
-export async function salvarRecompensas(recompensas: Recompensa[]): Promise<void> {
-  await AsyncStorage.setItem(STORAGE_KEYS.RECOMPENSAS, JSON.stringify(recompensas));
-}
-
-export async function carregarRecompensas(): Promise<Recompensa[]> {
-  const raw = await AsyncStorage.getItem(STORAGE_KEYS.RECOMPENSAS);
-  if (!raw) return [];
-  return JSON.parse(raw) as Recompensa[];
-}
-
-export async function salvarVeterinarios(veterinarios: Veterinario[]): Promise<void> {
-  await AsyncStorage.setItem(STORAGE_KEYS.VETERINARIOS, JSON.stringify(veterinarios));
-}
-
-export async function carregarVeterinarios(): Promise<Veterinario[]> {
-  const raw = await AsyncStorage.getItem(STORAGE_KEYS.VETERINARIOS);
-  if (!raw) return [];
-  return JSON.parse(raw) as Veterinario[];
-}
-
-export async function salvarVeterinarioAtivoId(id: string): Promise<void> {
-  await AsyncStorage.setItem(STORAGE_KEYS.VETERINARIO_ATIVO, id);
-}
-
-export async function carregarVeterinarioAtivoId(): Promise<string | null> {
-  return AsyncStorage.getItem(STORAGE_KEYS.VETERINARIO_ATIVO);
-}
-
-export async function salvarDisponibilidade(faixas: FaixaDisponibilidade[]): Promise<void> {
-  await AsyncStorage.setItem(STORAGE_KEYS.DISPONIBILIDADE, JSON.stringify(faixas));
-}
-
-export async function carregarDisponibilidade(): Promise<FaixaDisponibilidade[]> {
-  const raw = await AsyncStorage.getItem(STORAGE_KEYS.DISPONIBILIDADE);
-  if (!raw) return [];
-  return JSON.parse(raw) as FaixaDisponibilidade[];
-}
-
-export async function salvarBloqueios(bloqueios: BloqueioAgenda[]): Promise<void> {
-  await AsyncStorage.setItem(STORAGE_KEYS.BLOQUEIOS_AGENDA, JSON.stringify(bloqueios));
-}
-
-export async function carregarBloqueios(): Promise<BloqueioAgenda[]> {
-  const raw = await AsyncStorage.getItem(STORAGE_KEYS.BLOQUEIOS_AGENDA);
-  if (!raw) return [];
-  return JSON.parse(raw) as BloqueioAgenda[];
-}
-
-export async function resetarTodosDados(): Promise<void> {
+export async function resetarPreferenciasLocais(): Promise<void> {
   await AsyncStorage.multiRemove([
-    STORAGE_KEYS.PETS,
     STORAGE_KEYS.PET_ATIVO,
-    STORAGE_KEYS.EVENTOS,
     STORAGE_KEYS.ONBOARDING_CONCLUIDO,
     STORAGE_KEYS.NOTIFICACOES,
-    STORAGE_KEYS.SESSAO,
-    STORAGE_KEYS.SESSAO_ENCERRADA,
-    STORAGE_KEYS.CONTAS_CONHECIDAS,
-    STORAGE_KEYS.RECOMPENSAS,
-    STORAGE_KEYS.VETERINARIOS,
-    STORAGE_KEYS.VETERINARIO_ATIVO,
-    STORAGE_KEYS.DISPONIBILIDADE,
-    STORAGE_KEYS.BLOQUEIOS_AGENDA,
   ]);
 }
