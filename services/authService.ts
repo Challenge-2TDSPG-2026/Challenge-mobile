@@ -1,63 +1,27 @@
-import {
-  salvarSessao,
-  carregarSessao,
-  removerSessao,
-  verificarLogoutExplicito,
-  salvarContaConhecida,
-  buscarTipoContaConhecida,
-} from '../storage/petStorage';
-import type { Sessao } from '../storage/petStorage';
-import type { TipoConta } from '../types';
-export class ContaNaoEncontradaError extends Error {
-  constructor() {
-    super('Conta não encontrada');
-    this.name = 'ContaNaoEncontradaError';
-  }
+import { api } from './api/httpClient';
+import type { Sessao } from '../context/AuthContext';
+
+interface RegistrarPayload {
+  nome: string;
+  email: string;
+  senha: string;
+  cpf: string;
+  telefone?: string;
 }
-
 export const authService = {
-
   async login(email: string, senha: string): Promise<Sessao> {
-    const emailNormalizado = email.trim().toLowerCase();
-    const tipoConta = await buscarTipoContaConhecida(emailNormalizado);
-    if (!tipoConta) {
-      throw new ContaNaoEncontradaError();
-    }
+    return api.post<Sessao>('/auth/login', { email: email.trim().toLowerCase(), senha }, false);
+  },
 
-    const sessao: Sessao = {
-      email: emailNormalizado,
-      token: `fake-token-${Date.now()}`,
-      criadaEm: new Date().toISOString(),
-      tipoConta,
-    };
-    await salvarSessao(sessao);
-    return sessao;
+  async registrar(dados: RegistrarPayload): Promise<Sessao> {
+    return api.post<Sessao>(
+      '/auth/registrar',
+      { ...dados, email: dados.email.trim().toLowerCase() },
+      false
+    );
   },
 
   async logout(): Promise<void> {
-    await removerSessao();
-  },
-
-  async getSessaoAtual(): Promise<Sessao | null> {
-    return carregarSessao();
-  },
-
-  async estaAutenticado(): Promise<boolean> {
-    const sessao = await carregarSessao();
-    return sessao !== null;
-  },
-
-  async getTipoContaAtual(): Promise<TipoConta | null> {
-    const sessao = await carregarSessao();
-    return sessao?.tipoConta ?? null;
-  },
-
-  async estaExplicitamenteDeslogado(): Promise<boolean> {
-    return verificarLogoutExplicito();
-  },
-
-  async loginDev(email: string, senha: string, tipoConta: TipoConta): Promise<Sessao> {
-    await salvarContaConhecida(email, tipoConta);
-    return this.login(email, senha);
+    await api.post('/auth/logout');
   },
 };
