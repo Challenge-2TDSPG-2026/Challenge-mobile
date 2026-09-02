@@ -1,24 +1,16 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import type { Pet, Evento, Recompensa, StatusEventoExibicao } from '../types';
-import { META_CONSULTAS_RECOMPENSA, XP_POR_EVENTO, NIVEIS, CONQUISTAS } from '../constants';
+import type { Pet, Evento } from '../types';
+import { XP_POR_EVENTO, NIVEIS } from '../constants';
 import {
-  salvarEventos,
-  carregarEventos,
-  marcarOnboardingConcluido,
-  verificarOnboardingConcluido,
+  salvarPetAtivoId,
+  carregarPetAtivoId,
   salvarPreferencias,
   carregarPreferencias,
-  resetarTodosDados,
+  resetarPreferenciasLocais,
 } from '../storage/petStorage';
-import { petService } from '../services/petService';
-import { recompensaService } from '../services/recompensaService';
-
-function statusExibicao(e: Evento): StatusEventoExibicao {
-  if (e.status === 'concluido' || e.status === 'cancelado') return e.status;
-  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
-  const d = new Date(e.data); d.setHours(0, 0, 0, 0);
-  return d < hoje ? 'atrasado' : e.status;
-}
+import { useAuth } from './AuthContext';
+import { usePets, useCriarPet, useRemoverPet } from '../hooks/usePets';
+import { useEventos } from '../hooks/useEventos';
 
 export interface NivelInfo {
   nivel: number;
@@ -30,203 +22,129 @@ export interface NivelInfo {
   xpFaltaProximoNivel: number | null;
 }
 
-export interface ConquistaComStatus {
-  id: string;
-  titulo: string;
-  descricao: string;
-  icon: string;
-  iconSet: 'Ionicons' | 'MaterialCommunityIcons';
-  desbloqueada: boolean;
-}
-
 type PetContextValue = {
+  // --- Pets (API) ---
   pets: Pet[];
   petAtivo: Pet | null;
   petAtivoId: string | null;
-  selecionarPet: (id: string) => Promise<void>;
+  selecionarPet: (id: string) => void;
   adicionarPet: (pet: Pet) => Promise<void>;
   removerPet: (id: string) => Promise<void>;
+  salvandoPet: boolean;
+
+  // --- Eventos do pet ativo (API) ---
   eventos: Evento[];
+  carregandoEventos: boolean;
+
+  // --- Preferências locais de UI ---
   preferencias: Record<string, boolean>;
+  atualizarPreferencias: (prefs: Record<string, boolean>) => Promise<void>;
+
+  // --- Estado geral ---
   onboardingConcluido: boolean;
   carregando: boolean;
-  adicionarEvento: (evento: Evento) => Promise<void>;
-  removerEvento: (id: string) => Promise<void>;
-  atualizarPreferencias: (prefs: Record<string, boolean>) => Promise<void>;
-  resetar: () => Promise<void>;
+  resetarPreferencias: () => Promise<void>;
 
-  recompensas: Recompensa[];
-  metaConsultas: number;
-  consultasConcluidasTotal: number;
-  consultasNoCicloAtual: number;
-  recompensasDisponiveis: Recompensa[];
-  resgatarRecompensa: (id: string) => Promise<void>;
+  // --- Nível/XP (do pet ativo) ---
   nivelInfo: NivelInfo;
-  conquistas: ConquistaComStatus[];
-  conquistasDesbloqueadas: ConquistaComStatus[];
 };
 
 const PetContext = createContext<PetContextValue | undefined>(undefined);
 
 export function PetProvider({ children }: { children: React.ReactNode }) {
-  const [pets, setPets] = useState<Pet[]>([]);
-  const [petAtivoId, setPetAtivoId] = useState<string | null>(null);
-  const [eventosTodos, setEventosTodos] = useState<Evento[]>([]);
+  const { autenticado, carregando: carregandoAuth } = useAuth();
+
+  const [petAtivoId, setPetAtivoIdState] = useState<string | null>(null);
   const [preferencias, setPreferencias] = useState<Record<string, boolean>>({
     ativas: true,
     lembrete7: true,
     lembreteAntes: true,
   });
-  const [onboardingConcluido, setOnboardingConcluido] = useState(false);
-  const [carregando, setCarregando] = useState(true);
-  const [recompensasTodas, setRecompensasTodas] = useState<Recompensa[]>([]);
+  const [carregandoLocal, setCarregandoLocal] = useState(true);
 
+  // Preferências e pet ativo salvo são só UI local — carregados uma vez no mount.
   useEffect(() => {
-    async function inicializar() {
-      try {
-        const [petsSalvos, ativoIdSalvo, eventosSalvos, onboarding, prefsSalvas, recompensasSalvas] = await Promise.all([
-          petService.listarPets(),
-          petService.getPetAtivoId(),
-          carregarEventos(),
-          verificarOnboardingConcluido(),
-          carregarPreferencias(),
-          recompensaService.listarRecompensas(),
-        ]);
-        setPets(petsSalvos);
-        const ativoValido = ativoIdSalvo && petsSalvos.some(p => p.id === ativoIdSalvo)
-          ? ativoIdSalvo
-          : (petsSalvos[0]?.id ?? null);
-        setPetAtivoId(ativoValido);
-        setEventosTodos(eventosSalvos);
-        setOnboardingConcluido(onboarding);
-        setPreferencias(prefsSalvas);
-        setRecompensasTodas(recompensasSalvas);
-      } catch (e) {
-        console.error('Erro ao carregar dados:', e);
-      } finally {
-        setCarregando(false);
-      }
+    async function carregarLocal() {
+      const [ativoSalvo, prefsSalvas] = await Promise.all([
+        carregarPetAtivoId(),
+        carregarPreferencias(),
+      ]);
+      setPetAtivoIdState(ativoSalvo);
+      setPreferencias(prefsSalvas);
+      setCarregandoLocal(false);
     }
-    inicializar();
+    carregarLocal();
   }, []);
+
+  const habilitado = autenticado && !carregandoAuth;
+
+  const { data: pets = [], isLoading: carregandoPets } = usePets(habilitado);
+  const { data: eventosTodos = [], isLoading: carregandoEventos } = useEventos(habilitado);
+
+  const criarPetMutation = useCriarPet();
+  const removerPetMutation = useRemoverPet();
+
+  // Garante que petAtivoId sempre aponte para um pet que realmente existe:
+  // corrige tanto o carregamento inicial (id salvo de sessão anterior que já
+  // não existe mais) quanto remoções (pet ativo removido -> escolhe outro).
+  useEffect(() => {
+    if (carregandoPets) return;
+    const aindaExiste = petAtivoId !== null && pets.some(p => p.id === petAtivoId);
+    if (aindaExiste) return;
+
+    const novoAtivo = pets[0]?.id ?? null;
+    setPetAtivoIdState(novoAtivo);
+    if (novoAtivo) {
+      salvarPetAtivoId(novoAtivo);
+    }
+  }, [pets, carregandoPets, petAtivoId]);
 
   const petAtivo = useMemo(() => pets.find(p => p.id === petAtivoId) ?? null, [pets, petAtivoId]);
 
-  const selecionarPet = useCallback(async (id: string) => {
-    await petService.setPetAtivoId(id);
-    setPetAtivoId(id);
+  const selecionarPet = useCallback((id: string) => {
+    setPetAtivoIdState(id);
+    salvarPetAtivoId(id);
   }, []);
 
   const adicionarPet = useCallback(async (pet: Pet) => {
-    const novos = await petService.adicionarPet(pet, pets);
-    setPets(novos);
-    await petService.setPetAtivoId(pet.id);
-    setPetAtivoId(pet.id);
-    if (!onboardingConcluido) {
-      await marcarOnboardingConcluido();
-      setOnboardingConcluido(true);
-    }
-  }, [pets, onboardingConcluido]);
+    const criado = await criarPetMutation.mutateAsync(pet);
+    setPetAtivoIdState(criado.id);
+    await salvarPetAtivoId(criado.id);
+  }, [criarPetMutation]);
 
   const removerPet = useCallback(async (id: string) => {
-    const novos = await petService.removerPet(id, pets);
-    setPets(novos);
-    if (petAtivoId === id) {
-      const novoAtivo = novos[0]?.id ?? null;
-      setPetAtivoId(novoAtivo);
-      if (novoAtivo) await petService.setPetAtivoId(novoAtivo);
-    }
-  }, [pets, petAtivoId]);
+    await removerPetMutation.mutateAsync(id);
+    // A reatribuição do pet ativo (se este era o ativo) é feita pelo
+    // useEffect acima assim que a lista de pets for revalidada.
+  }, [removerPetMutation]);
 
+  // --- Eventos escopados ao pet ativo ---
   const eventos = useMemo(
     () => eventosTodos.filter(e => e.petId === petAtivoId),
     [eventosTodos, petAtivoId]
   );
-
-  const adicionarEvento = useCallback(async (evento: Evento) => {
-    setEventosTodos(prev => {
-      const novos = [...prev, evento];
-      salvarEventos(novos);
-      return novos;
-    });
-  }, []);
-
-  const removerEvento = useCallback(async (id: string) => {
-    setEventosTodos(prev => {
-      const novos = prev.filter(e => e.id !== id);
-      salvarEventos(novos);
-      return novos;
-    });
-  }, []);
 
   const atualizarPreferencias = useCallback(async (prefs: Record<string, boolean>) => {
     await salvarPreferencias(prefs);
     setPreferencias(prefs);
   }, []);
 
-  const resetar = useCallback(async () => {
-    await resetarTodosDados();
-    setPets([]);
-    setPetAtivoId(null);
-    setEventosTodos([]);
-    setOnboardingConcluido(false);
+  const resetarPreferencias = useCallback(async () => {
+    await resetarPreferenciasLocais();
+    setPetAtivoIdState(null);
     setPreferencias({ ativas: true, lembrete7: true, lembreteAntes: true });
-    setRecompensasTodas([]);
   }, []);
 
-  // --- Recompensas escopadas ao pet ativo ---
-  const recompensas = useMemo(
-    () => recompensasTodas.filter(r => r.petId === petAtivoId),
-    [recompensasTodas, petAtivoId]
-  );
+  // Onboarding concluído é derivado de haver pelo menos 1 pet cadastrado na
+  // API — não é mais uma flag local, para não divergir do estado real do
+  // servidor (ex: tutor que já cadastrou pet em outro dispositivo).
+  const onboardingConcluido = pets.length > 0;
 
-  const consultasConcluidasTotal = useMemo(
-    () => eventos.filter(e => e.tipo === 'consulta' && e.status === 'concluido').length,
-    [eventos]
-  );
-
-  useEffect(() => {
-    if (carregando || !petAtivoId) return;
-    const deveriaTer = Math.floor(consultasConcluidasTotal / META_CONSULTAS_RECOMPENSA);
-    const jaTem = recompensasTodas.filter(r => r.petId === petAtivoId).length;
-    const faltam = deveriaTer - jaTem;
-    if (faltam <= 0) return;
-
-    async function gerarNovasRecompensas() {
-      let listaAtual = recompensasTodas;
-      for (let i = 0; i < faltam; i++) {
-        const nova: Recompensa = {
-          id: `${Date.now()}-${i}`,
-          petId: petAtivoId!,
-          criadaEm: new Date().toISOString(),
-          resgatada: false,
-        };
-        listaAtual = await recompensaService.adicionarRecompensa(nova, listaAtual);
-      }
-      setRecompensasTodas(listaAtual);
-    }
-    gerarNovasRecompensas();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [consultasConcluidasTotal, carregando, petAtivoId]);
-
-  const consultasNoCicloAtual = useMemo(
-    () => consultasConcluidasTotal - recompensas.length * META_CONSULTAS_RECOMPENSA,
-    [consultasConcluidasTotal, recompensas.length]
-  );
-
-  const recompensasDisponiveis = useMemo(
-    () => recompensas.filter(r => !r.resgatada),
-    [recompensas]
-  );
-
-  const resgatarRecompensa = useCallback(async (id: string) => {
-    const novas = await recompensaService.resgatarRecompensa(id, recompensasTodas);
-    setRecompensasTodas(novas);
-  }, [recompensasTodas]);
+  const carregando = carregandoAuth || carregandoLocal || (habilitado && carregandoPets);
 
   // --- Nível / XP (do pet ativo) ---
   const eventosConcluidosTotal = useMemo(
-    () => eventos.filter(e => e.status === 'concluido').length,
+    () => eventos.filter(e => e.status === 'CONCLUIDO').length,
     [eventos]
   );
 
@@ -256,39 +174,6 @@ export function PetProvider({ children }: { children: React.ReactNode }) {
     };
   }, [eventosConcluidosTotal]);
 
-  // --- Conquistas (do pet ativo) ---
-  const eventosComStatus = useMemo(
-    () => eventos.map(e => ({ ...e, statusExibicao: statusExibicao(e) })),
-    [eventos]
-  );
-
-  const conquistas: ConquistaComStatus[] = useMemo(() => {
-    const vacinas = eventosComStatus.filter(e => e.tipo === 'vacina');
-    const temAtraso = eventosComStatus.some(e => e.statusExibicao === 'atrasado');
-    const temVacinaAtrasada = vacinas.some(e => e.statusExibicao === 'atrasado');
-
-    const regras: Record<string, boolean> = {
-      'primeiro-cadastro': petAtivo !== null,
-      'primeira-consulta': eventos.some(e => e.tipo === 'consulta' && e.status === 'concluido'),
-      'cinco-eventos': eventosConcluidosTotal >= 5,
-      'vinte-eventos': eventosConcluidosTotal >= 20,
-      'vacinacao-em-dia': vacinas.length > 0 && !temVacinaAtrasada,
-      'sem-atrasos': eventos.length > 0 && !temAtraso,
-      'dez-registros': eventos.length >= 10,
-      'primeiro-resgate': recompensas.some(r => r.resgatada),
-    };
-
-    return CONQUISTAS.map(c => ({
-      ...c,
-      desbloqueada: regras[c.id] ?? false,
-    }));
-  }, [petAtivo, eventos, eventosComStatus, eventosConcluidosTotal, recompensas]);
-
-  const conquistasDesbloqueadas = useMemo(
-    () => conquistas.filter(c => c.desbloqueada),
-    [conquistas]
-  );
-
   return (
     <PetContext.Provider
       value={{
@@ -298,23 +183,15 @@ export function PetProvider({ children }: { children: React.ReactNode }) {
         selecionarPet,
         adicionarPet,
         removerPet,
+        salvandoPet: criarPetMutation.isPending,
         eventos,
+        carregandoEventos,
         preferencias,
+        atualizarPreferencias,
         onboardingConcluido,
         carregando,
-        adicionarEvento,
-        removerEvento,
-        atualizarPreferencias,
-        resetar,
-        recompensas,
-        metaConsultas: META_CONSULTAS_RECOMPENSA,
-        consultasConcluidasTotal,
-        consultasNoCicloAtual,
-        recompensasDisponiveis,
-        resgatarRecompensa,
+        resetarPreferencias,
         nivelInfo,
-        conquistas,
-        conquistasDesbloqueadas,
       }}
     >
       {children}
