@@ -1,7 +1,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STORAGE_KEYS } from '../constants';
-import { api, ApiError } from '../services/api/httpClient';
+import { ApiError } from '../services/api/httpClient';
+import { authService } from '../services/authService';
 
 export type Perfil = 'TUTOR' | 'VETERINARIO' | 'ADMIN';
 
@@ -65,7 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback(async (email: string, senha: string) => {
     setErro(null);
     try {
-      const resposta = await api.post<Sessao>('/auth/login', { email, senha }, false);
+      const resposta = await authService.login(email, senha);
       await salvarSessao(resposta);
       setSessao(resposta);
     } catch (e) {
@@ -78,7 +79,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const registrar = useCallback(async (dados: RegistrarPayload) => {
     setErro(null);
     try {
-      const resposta = await api.post<Sessao>('/auth/registrar', dados, false);
+      const resposta = await authService.registrar(dados);
       await salvarSessao(resposta);
       setSessao(resposta);
     } catch (e) {
@@ -90,8 +91,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(async () => {
     try {
-      await api.post('/auth/logout');
+      await authService.logout();
     } catch {
+      // mesmo se a chamada falhar (ex: sem conexão), a sessão local é limpa
     }
     await AsyncStorage.removeItem(STORAGE_KEYS.SESSAO);
     setSessao(null);
