@@ -1,10 +1,10 @@
 import React, { useMemo } from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
 import { usePet } from '../../context/PetContext';
-import { TIPOS_EVENTO, STATUS_EVENTO } from '../../constants';
+import { obterVisualTipoEvento } from '../../constants';
 import { AppIcon } from '../../components/AppIcon';
 import { PetSwitcher } from '../../components/PetSwitcher';
-import type { Evento, StatusEventoExibicao } from '../../types';
+import { statusExibicao, STATUS_EXIBICAO_BADGE, parseDataEvento } from '../../utils/eventoStatus';
 
 const C = {
   g900: '#0a2218', g800: '#0e3326', g700: '#155c3f', g600: '#1a7a52',
@@ -14,43 +14,32 @@ const C = {
   danger: '#dc3545', warn: '#e67e22', info: '#2563eb',
 };
 
-/** Mesma regra de exibição usada no PetContext e no agenda.tsx. */
-function statusExibicao(e: Evento): StatusEventoExibicao {
-  if (e.status === 'concluido' || e.status === 'cancelado') return e.status;
-  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
-  const d = new Date(e.data); d.setHours(0, 0, 0, 0);
-  return d < hoje ? 'atrasado' : e.status;
-}
-
 function mesAno(iso: string): string {
-  return new Date(iso).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  return parseDataEvento(iso).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
 }
 
 function formatarDataCurta(iso: string): string {
-  return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+  return parseDataEvento(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
 }
 
 export default function HistoricoScreen() {
-  const { eventos } = usePet();
+  const { eventos, carregandoEventos } = usePet();
 
   const eventosComStatus = useMemo(
     () => eventos.map(e => ({ ...e, statusExibicao: statusExibicao(e) })),
     [eventos]
   );
-
   const total = eventosComStatus.length;
-  const concluidos = eventosComStatus.filter(e => e.status === 'concluido').length;
-  const cancelados = eventosComStatus.filter(e => e.status === 'cancelado').length;
-  const emAndamento = total - concluidos - cancelados;
-
-  // Taxa de conclusão considera só eventos que não foram cancelados
-  const baseCalculo = total - cancelados;
-  const progresso = baseCalculo > 0 ? concluidos / baseCalculo : 0;
-  const pct = Math.round(progresso * 100);
+  const concluidos = eventosComStatus.filter(e => e.statusExibicao === 'CONCLUIDO').length;
+  const cancelados = eventosComStatus.filter(e => e.statusExibicao === 'CANCELADO').length;
+  const emAberto = total - concluidos - cancelados;
+  const progresso = total > 0 ? concluidos / total : 0;
 
   const agrupados = useMemo(() => {
     const mapa: Record<string, typeof eventosComStatus> = {};
-    const ordenados = [...eventosComStatus].sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
+    const ordenados = [...eventosComStatus].sort(
+      (a, b) => parseDataEvento(b.data).getTime() - parseDataEvento(a.data).getTime()
+    );
     for (const e of ordenados) {
       const chave = mesAno(e.data);
       if (!mapa[chave]) mapa[chave] = [];
@@ -58,6 +47,8 @@ export default function HistoricoScreen() {
     }
     return mapa;
   }, [eventosComStatus]);
+
+  const pct = Math.round(progresso * 100);
 
   return (
     <ScrollView style={s.container} contentContainerStyle={s.content}>
@@ -67,8 +58,7 @@ export default function HistoricoScreen() {
       <View style={s.statsRow}>
         <StatCard valor={total} label="Total" accentColor={C.info} />
         <StatCard valor={concluidos} label="Realizados" accentColor={C.g500} />
-        <StatCard valor={emAndamento} label="Em Andamento" accentColor={C.warn} />
-        <StatCard valor={cancelados} label="Canceladas" accentColor={C.danger} />
+        <StatCard valor={emAberto} label="Em aberto" accentColor={C.warn} />
       </View>
 
       <View style={s.progressoCard}>
@@ -79,20 +69,26 @@ export default function HistoricoScreen() {
           </View>
           <View style={s.progressoMeta}>
             <Text style={s.progressoMetaText}>{concluidos} realizados</Text>
-            <Text style={s.progressoMetaText}>{emAndamento} em andamento</Text>
+            <Text style={s.progressoMetaText}>{emAberto} em aberto</Text>
           </View>
         </View>
         <View style={s.barraTrack}>
           <View style={[s.barraFill, { width: `${pct}%` as any }]} />
         </View>
-        <Text style={s.progressoHint}>{total} evento{total !== 1 ? 's' : ''} no total</Text>
+        <Text style={s.progressoHint}>
+          {total} evento{total !== 1 ? 's' : ''} no total{cancelados > 0 ? ` · ${cancelados} cancelado${cancelados !== 1 ? 's' : ''}` : ''}
+        </Text>
       </View>
 
-      {Object.keys(agrupados).length === 0 ? (
+      {carregandoEventos ? (
+        <View style={s.empty}>
+          <ActivityIndicator color={C.g600} />
+        </View>
+      ) : Object.keys(agrupados).length === 0 ? (
         <View style={s.empty}>
           <AppIcon name="document-text-outline" set="Ionicons" size={40} color={C.muted} style={s.emptyIcon} />
           <Text style={s.emptyTitle}>Nenhum evento registrado ainda</Text>
-          <Text style={s.emptySub}>Solicite eventos para ver o histórico clínico</Text>
+          <Text style={s.emptySub}>Adicione eventos para ver o histórico clínico</Text>
         </View>
       ) : (
         Object.entries(agrupados).map(([mes, evts]) => (
@@ -111,20 +107,18 @@ export default function HistoricoScreen() {
                 <Text style={[s.thText, { flex: 1, textAlign: 'right' }]}>Status</Text>
               </View>
               {evts.map((evento, idx) => {
-                const t = TIPOS_EVENTO.find(x => x.valor === evento.tipo);
-                const sb = STATUS_EVENTO[evento.statusExibicao];
+                const visual = obterVisualTipoEvento(evento.nomeTipoEvento);
+                const sb = STATUS_EXIBICAO_BADGE[evento.statusExibicao];
                 const isLast = idx === evts.length - 1;
                 return (
                   <View key={evento.id} style={[s.tabelaRow, !isLast && s.tabelaRowBorder]}>
                     <View style={[s.tdEvento, { flex: 2 }]}>
-                      <View style={[s.rowIcone, { backgroundColor: t?.cor ?? C.g500 }]}>
-                        <AppIcon name={t?.icon ?? 'document-text-outline'} set={t?.iconSet ?? 'Ionicons'} size={13} color={C.white} />
+                      <View style={[s.rowIcone, { backgroundColor: visual.cor }]}>
+                        <AppIcon name={visual.icon} set={visual.iconSet} size={13} color={C.white} />
                       </View>
                       <View>
-                        <Text style={s.rowTitulo} numberOfLines={1}>{evento.titulo}</Text>
-                        <View style={[s.tipoBadge, { backgroundColor: (t?.cor ?? C.g500) + '22' }]}>
-                          <Text style={[s.tipoBadgeText, { color: t?.cor ?? C.g500 }]}>{t?.label}</Text>
-                        </View>
+                        <Text style={s.rowTitulo} numberOfLines={1}>{evento.nomeTipoEvento}</Text>
+                        <Text style={s.rowVet} numberOfLines={1}>{evento.nomeVeterinario}</Text>
                       </View>
                     </View>
 
@@ -159,18 +153,18 @@ const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.cream },
   content: { padding: 16, paddingBottom: 32 },
 
-  statsRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
+  statsRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
   statCard: {
     flex: 1,
     backgroundColor: C.white,
     borderWidth: 1,
     borderColor: C.border,
     borderRadius: 12,
-    padding: 10,
+    padding: 14,
     borderBottomWidth: 3,
   },
-  statLabel: { fontSize: 9, fontWeight: '700', letterSpacing: 0.3, textTransform: 'uppercase', color: C.muted, marginBottom: 5 },
-  statVal: { fontSize: 20, fontWeight: '700', lineHeight: 22 },
+  statLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 0.4, textTransform: 'uppercase', color: C.muted, marginBottom: 6 },
+  statVal: { fontSize: 26, fontWeight: '700', lineHeight: 28 },
 
   progressoCard: { backgroundColor: C.g800, borderRadius: 16, padding: 20, marginBottom: 24 },
   progressoHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 },
@@ -208,9 +202,8 @@ const s = StyleSheet.create({
 
   tdEvento: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   rowIcone: { width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
-  rowTitulo: { fontSize: 13, fontWeight: '600', color: C.text, marginBottom: 3 },
-  tipoBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 20, alignSelf: 'flex-start' },
-  tipoBadgeText: { fontSize: 10, fontWeight: '700' },
+  rowTitulo: { fontSize: 13, fontWeight: '600', color: C.text, marginBottom: 2 },
+  rowVet: { fontSize: 10, color: C.muted },
 
   tdData: { fontSize: 12, fontWeight: '600', color: C.muted, textAlign: 'center' },
   tdStatus: { alignItems: 'flex-end' },

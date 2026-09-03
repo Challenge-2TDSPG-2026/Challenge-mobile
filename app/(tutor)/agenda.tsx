@@ -1,14 +1,16 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet, Modal, TextInput, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { usePet } from '../../context/PetContext';
-import { TIPOS_EVENTO, STATUS_EVENTO } from '../../constants';
+import { useCancelarEvento, useRemoverEvento } from '../../hooks/useEventos';
+import { obterVisualTipoEvento } from '../../constants';
 import { AppIcon } from '../../components/AppIcon';
 import { PetSwitcher } from '../../components/PetSwitcher';
 import { Calendario, dateKey } from '../../components/Calendario';
+import { statusExibicao, STATUS_EXIBICAO_BADGE, parseDataEvento, formatarDataEvento } from '../../utils/eventoStatus';
 import { alertar } from '../../utils/alert';
-import type { Evento, StatusEventoExibicao } from '../../types';
+import type { Evento } from '../../types';
 
 const C = {
   g900: '#0a2218', g800: '#0e3326', g700: '#155c3f', g600: '#1a7a52',
@@ -18,45 +20,32 @@ const C = {
   danger: '#dc3545', warn: '#e67e22', info: '#2563eb',
 };
 
-type Filtro = 'todos' | 'atrasado' | 'vacina' | 'consulta' | 'vermifugo' | 'medicamento' | 'checkup' | 'outro';
+type Filtro = 'todos' | 'atrasado' | 'PREVENTIVO' | 'TERAPEUTICO' | 'BEM_ESTAR' | 'EMERGENCIA';
 
 const FILTROS: { valor: Filtro; label: string; icon: string; iconSet: 'Ionicons' | 'MaterialCommunityIcons' }[] = [
   { valor: 'todos', label: 'Todos', icon: 'apps-outline', iconSet: 'Ionicons' },
   { valor: 'atrasado', label: 'Atrasados', icon: 'alert-circle-outline', iconSet: 'Ionicons' },
-  { valor: 'vacina', label: 'Vacina', icon: 'needle', iconSet: 'MaterialCommunityIcons' },
-  { valor: 'consulta', label: 'Consulta', icon: 'medical-bag', iconSet: 'MaterialCommunityIcons' },
-  { valor: 'vermifugo', label: 'Vermífugo', icon: 'bug-outline', iconSet: 'Ionicons' },
-  { valor: 'medicamento', label: 'Medicamento', icon: 'medkit-outline', iconSet: 'Ionicons' },
-  { valor: 'checkup', label: 'Check-up', icon: 'pulse-outline', iconSet: 'Ionicons' },
-  { valor: 'outro', label: 'Outro', icon: 'document-text-outline', iconSet: 'Ionicons' },
+  { valor: 'PREVENTIVO', label: 'Preventivo', icon: 'shield-checkmark-outline', iconSet: 'Ionicons' },
+  { valor: 'TERAPEUTICO', label: 'Terapêutico', icon: 'medical-bag', iconSet: 'MaterialCommunityIcons' },
+  { valor: 'BEM_ESTAR', label: 'Bem-estar', icon: 'heart-outline', iconSet: 'Ionicons' },
+  { valor: 'EMERGENCIA', label: 'Emergência', icon: 'warning-outline', iconSet: 'Ionicons' },
 ];
-
-/**
- * Status de EXIBIÇÃO do evento (mesma regra usada no PetContext):
- * 'atrasado' é calculado, nunca persistido, e só se aplica a eventos
- * ainda em aberto ('solicitado'/'confirmado') com data no passado.
- */
-function statusExibicao(e: Evento): StatusEventoExibicao {
-  if (e.status === 'concluido' || e.status === 'cancelado') return e.status;
-  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
-  const d = new Date(e.data); d.setHours(0, 0, 0, 0);
-  return d < hoje ? 'atrasado' : e.status;
-}
 
 function formatarDataLonga(d: Date): string {
   return d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
 }
 
-function formatarHora(iso: string): string {
-  return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-}
-
 export default function AgendaScreen() {
   const router = useRouter();
-  const { petAtivo, eventos, removerEvento } = usePet();
+  const { petAtivo, eventos, carregandoEventos } = usePet();
+  const cancelarMutation = useCancelarEvento();
+  const removerMutation = useRemoverEvento();
+
   const [filtro, setFiltro] = useState<Filtro>('todos');
   const [mesRef, setMesRef] = useState(() => new Date());
   const [selecionado, setSelecionado] = useState(() => new Date());
+  const [eventoParaCancelar, setEventoParaCancelar] = useState<Evento | null>(null);
+  const [motivoCancelamento, setMotivoCancelamento] = useState('');
 
   const eventosComStatus = useMemo(
     () => eventos.map(e => ({ ...e, statusExibicao: statusExibicao(e) })),
@@ -64,19 +53,18 @@ export default function AgendaScreen() {
   );
 
   const eventosFiltrados = useMemo(() => {
-    if (filtro === 'atrasado') return eventosComStatus.filter(e => e.statusExibicao === 'atrasado');
-    if (filtro !== 'todos') return eventosComStatus.filter(e => e.tipo === filtro);
+    if (filtro === 'atrasado') return eventosComStatus.filter(e => e.statusExibicao === 'ATRASADO');
+    if (filtro !== 'todos') return eventosComStatus.filter(e => e.categoriaTipoEvento === filtro);
     return eventosComStatus;
   }, [eventosComStatus, filtro]);
 
   const marcadores = useMemo(() => {
     const mapa: Record<string, string[]> = {};
     for (const e of eventosFiltrados) {
-      const chave = dateKey(new Date(e.data));
-      const t = TIPOS_EVENTO.find(x => x.valor === e.tipo);
-      const cor = t?.cor ?? C.g500;
+      const chave = dateKey(parseDataEvento(e.data));
+      const visual = obterVisualTipoEvento(e.nomeTipoEvento);
       if (!mapa[chave]) mapa[chave] = [];
-      if (!mapa[chave].includes(cor)) mapa[chave].push(cor);
+      if (!mapa[chave].includes(visual.cor)) mapa[chave].push(visual.cor);
     }
     return mapa;
   }, [eventosFiltrados]);
@@ -84,8 +72,8 @@ export default function AgendaScreen() {
   const eventosDoDia = useMemo(() => {
     const chaveSelecionada = dateKey(selecionado);
     return eventosFiltrados
-      .filter(e => dateKey(new Date(e.data)) === chaveSelecionada)
-      .sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
+      .filter(e => dateKey(parseDataEvento(e.data)) === chaveSelecionada)
+      .sort((a, b) => parseDataEvento(a.data).getTime() - parseDataEvento(b.data).getTime());
   }, [eventosFiltrados, selecionado]);
 
   function handleMudarMes(offset: number) {
@@ -96,15 +84,34 @@ export default function AgendaScreen() {
     });
   }
 
-  function handleRemover(id: string) {
-    alertar(
-      'Retirar solicitação?',
-      'Isso cancela o pedido antes mesmo do veterinário confirmar. Essa ação não pode ser desfeita.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Retirar', style: 'destructive', onPress: () => removerEvento(id) },
-      ]
-    );
+  function abrirCancelamento(evento: Evento) {
+    setEventoParaCancelar(evento);
+    setMotivoCancelamento('');
+  }
+
+  async function confirmarCancelamento() {
+    if (!eventoParaCancelar) return;
+    if (!motivoCancelamento.trim()) {
+      alertar('Informe o motivo', 'É preciso descrever o motivo do cancelamento.');
+      return;
+    }
+    try {
+      await cancelarMutation.mutateAsync({ id: eventoParaCancelar.id, motivo: motivoCancelamento.trim() });
+      setEventoParaCancelar(null);
+    } catch {
+      alertar('Não foi possível cancelar', 'Tente novamente em instantes.');
+    }
+  }
+
+  async function handleRemover(evento: Evento) {
+    try {
+      await removerMutation.mutateAsync(evento.id);
+    } catch {
+      alertar(
+        'Não foi possível remover',
+        'Só é possível remover eventos que ainda não foram respondidos pelo veterinário.'
+      );
+    }
   }
 
   return (
@@ -155,53 +162,87 @@ export default function AgendaScreen() {
           )}
         </View>
 
-        {eventosDoDia.length === 0 ? (
+        {carregandoEventos ? (
+          <View style={s.empty}>
+            <ActivityIndicator color={C.g600} />
+          </View>
+        ) : eventosDoDia.length === 0 ? (
           <View style={s.empty}>
             <AppIcon name="calendar-outline" set="Ionicons" size={40} color={C.muted} style={s.emptyIcon} />
-            <Text style={s.emptyTitle}>Nenhum exame nesse dia</Text>
-            <Text style={s.emptySub}>Toque em outra data ou solicite um novo evento</Text>
+            <Text style={s.emptyTitle}>Nenhum evento nesse dia</Text>
+            <Text style={s.emptySub}>Toque em outra data ou adicione um novo evento</Text>
           </View>
         ) : (
           eventosDoDia.map(item => {
-            const t = TIPOS_EVENTO.find(x => x.valor === item.tipo);
-            const sb = STATUS_EVENTO[item.statusExibicao];
-            const podeRetirar = item.status === 'solicitado';
+            const visual = obterVisualTipoEvento(item.nomeTipoEvento);
+            const sb = STATUS_EXIBICAO_BADGE[item.statusExibicao];
+            const podeCancelar = item.status === 'SOLICITADO' || item.status === 'CONFIRMADO';
+            const podeRemover = item.status === 'SOLICITADO';
+            const cancelandoEste = cancelarMutation.isPending && eventoParaCancelar?.id === item.id;
+            const removendoEste = removerMutation.isPending && removerMutation.variables === item.id;
+
             return (
               <View key={item.id} style={s.card}>
                 <View style={s.cardRow}>
-                  <View style={[s.eventoIcone, { backgroundColor: t?.cor ?? C.g500 }]}>
-                    <AppIcon name={t?.icon ?? 'document-text-outline'} set={t?.iconSet ?? 'Ionicons'} size={18} color={C.white} />
+                  <View style={[s.eventoIcone, { backgroundColor: visual.cor }]}>
+                    <AppIcon name={visual.icon} set={visual.iconSet} size={18} color={C.white} />
                   </View>
                   <View style={s.eventoInfo}>
-                    <Text style={s.eventoTitulo}>{item.titulo}</Text>
+                    <Text style={s.eventoTitulo}>{item.nomeTipoEvento}</Text>
                     <View style={s.eventoMetaRow}>
                       <AppIcon name="time-outline" set="Ionicons" size={11} color={C.muted} />
-                      <Text style={s.eventoMeta}>{formatarHora(item.data)}</Text>
+                      <Text style={s.eventoMeta}>{formatarDataEvento(item.data)}</Text>
                       <Text style={s.eventoMetaDot}>•</Text>
-                      <AppIcon name="paw" set="MaterialCommunityIcons" size={11} color={C.muted} />
-                      <Text style={s.eventoMeta}>{petAtivo?.nome ?? 'Pet não identificado'}</Text>
+                      <AppIcon name="medical-outline" set="Ionicons" size={11} color={C.muted} />
+                      <Text style={s.eventoMeta}>{item.nomeVeterinario}</Text>
                     </View>
+                    {item.observacao ? <Text style={s.eventoObs}>{item.observacao}</Text> : null}
+                    {item.status === 'CANCELADO' && item.motivoCancelamento ? (
+                      <Text style={s.eventoMotivoCancelamento}>Motivo: {item.motivoCancelamento}</Text>
+                    ) : null}
                   </View>
                 </View>
 
                 <View style={s.cardFooter}>
                   <View style={s.badges}>
-                    <View style={[s.badge, { backgroundColor: (t?.cor ?? C.g500) + '22' }]}>
-                      <Text style={[s.badgeText, { color: t?.cor ?? C.g500 }]}>{t?.label}</Text>
-                    </View>
                     <View style={[s.badge, { backgroundColor: sb.bg }]}>
                       <Text style={[s.badgeText, { color: sb.color }]}>{sb.label}</Text>
                     </View>
                   </View>
-                  {podeRetirar && (
-                    <Pressable
-                      style={[s.btnAcao, s.btnAcaoDanger]}
-                      onPress={() => handleRemover(item.id)}
-                    >
-                      <Ionicons name="close-circle-outline" size={14} color={C.danger} />
-                      <Text style={[s.btnAcaoText, { color: C.danger }]}>Retirar</Text>
-                    </Pressable>
-                  )}
+                  <View style={s.acoes}>
+                    {podeCancelar && (
+                      <Pressable
+                        style={[s.btnAcao, s.btnAcaoDanger]}
+                        onPress={() => abrirCancelamento(item)}
+                        disabled={cancelandoEste}
+                      >
+                        {cancelandoEste ? (
+                          <ActivityIndicator size="small" color={C.danger} />
+                        ) : (
+                          <>
+                            <Ionicons name="close-circle-outline" size={14} color={C.danger} />
+                            <Text style={[s.btnAcaoText, { color: C.danger }]}>Cancelar</Text>
+                          </>
+                        )}
+                      </Pressable>
+                    )}
+                    {podeRemover && (
+                      <Pressable
+                        style={s.btnAcao}
+                        onPress={() => handleRemover(item)}
+                        disabled={removendoEste}
+                      >
+                        {removendoEste ? (
+                          <ActivityIndicator size="small" color={C.muted} />
+                        ) : (
+                          <>
+                            <Ionicons name="trash-outline" size={14} color={C.muted} />
+                            <Text style={[s.btnAcaoText, { color: C.muted }]}>Remover</Text>
+                          </>
+                        )}
+                      </Pressable>
+                    )}
+                  </View>
                 </View>
               </View>
             );
@@ -212,6 +253,41 @@ export default function AgendaScreen() {
       <Pressable style={s.fab} onPress={() => router.push('/add-evento')}>
         <Ionicons name="add" size={28} color="#fff" />
       </Pressable>
+
+      <Modal visible={eventoParaCancelar !== null} transparent animationType="fade" onRequestClose={() => setEventoParaCancelar(null)}>
+        <View style={s.modalOverlay}>
+          <View style={s.modalCard}>
+            <Text style={s.modalTitulo}>Cancelar evento</Text>
+            <Text style={s.modalSub}>
+              {eventoParaCancelar?.nomeTipoEvento} — {eventoParaCancelar ? formatarDataEvento(eventoParaCancelar.data) : ''}
+            </Text>
+            <TextInput
+              style={s.modalInput}
+              value={motivoCancelamento}
+              onChangeText={setMotivoCancelamento}
+              placeholder="Motivo do cancelamento"
+              placeholderTextColor={C.muted}
+              multiline
+              numberOfLines={3}
+              autoFocus
+            />
+            <View style={s.modalAcoes}>
+              <Pressable style={s.modalBtnCancelar} onPress={() => setEventoParaCancelar(null)}>
+                <Text style={s.modalBtnCancelarText}>Voltar</Text>
+              </Pressable>
+              <Pressable
+                style={[s.modalBtnConfirmar, cancelarMutation.isPending && { opacity: 0.6 }]}
+                onPress={confirmarCancelamento}
+                disabled={cancelarMutation.isPending}
+              >
+                <Text style={s.modalBtnConfirmarText}>
+                  {cancelarMutation.isPending ? 'Cancelando...' : 'Confirmar cancelamento'}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -270,6 +346,8 @@ const s = StyleSheet.create({
   eventoMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 },
   eventoMeta: { fontSize: 11, color: C.muted },
   eventoMetaDot: { fontSize: 11, color: C.muted, marginHorizontal: 2 },
+  eventoObs: { fontSize: 11, color: C.muted, marginTop: 4, fontStyle: 'italic' },
+  eventoMotivoCancelamento: { fontSize: 11, color: C.danger, marginTop: 4 },
 
   cardFooter: {
     flexDirection: 'row',
@@ -282,6 +360,7 @@ const s = StyleSheet.create({
   badges: { flexDirection: 'row', gap: 6 },
   badge: { paddingHorizontal: 9, paddingVertical: 3, borderRadius: 20 },
   badgeText: { fontSize: 11, fontWeight: '700' },
+  acoes: { flexDirection: 'row', gap: 6 },
   btnAcao: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -292,6 +371,8 @@ const s = StyleSheet.create({
     backgroundColor: C.g50,
     borderWidth: 1,
     borderColor: C.g200,
+    minWidth: 36,
+    justifyContent: 'center',
   },
   btnAcaoDanger: { backgroundColor: '#fff5f5', borderColor: '#fecaca' },
   btnAcaoText: { fontSize: 12, fontWeight: '600' },
@@ -317,4 +398,35 @@ const s = StyleSheet.create({
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 3 },
   },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(10,34,24,0.5)',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    backgroundColor: C.white,
+    borderRadius: 16,
+    padding: 20,
+  },
+  modalTitulo: { fontSize: 16, fontWeight: '700', color: C.text, marginBottom: 4 },
+  modalSub: { fontSize: 12, color: C.muted, marginBottom: 14 },
+  modalInput: {
+    backgroundColor: C.w50,
+    borderWidth: 1.5,
+    borderColor: C.border,
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 13,
+    color: C.text,
+    minHeight: 80,
+    textAlignVertical: 'top',
+    marginBottom: 16,
+  },
+  modalAcoes: { flexDirection: 'row', gap: 10, justifyContent: 'flex-end' },
+  modalBtnCancelar: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8 },
+  modalBtnCancelarText: { fontSize: 13, fontWeight: '600', color: C.muted },
+  modalBtnConfirmar: { backgroundColor: C.danger, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8 },
+  modalBtnConfirmarText: { color: C.white, fontSize: 13, fontWeight: '700' },
 });

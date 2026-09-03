@@ -6,8 +6,9 @@ import { usePet } from '../../context/PetContext';
 import { ESPECIES } from '../../constants';
 import { authService } from '../../services/authService';
 import { AppIcon } from '../../components/AppIcon';
-import { alertar } from '../../utils/alert';
-import type { Evento, StatusEventoExibicao } from '../../types';
+import { alertar, confirmar } from '../../utils/alert';
+import { statusExibicao } from '../../utils/eventoStatus';
+import type { Evento } from '../../types';
 
 const C = {
   g900: '#0a2218', g800: '#0e3326', g700: '#155c3f', g600: '#1a7a52',
@@ -16,14 +17,6 @@ const C = {
   text: '#1a1512', muted: '#7a6a5e', border: '#e8e2da', white: '#fff',
   danger: '#dc3545', warn: '#e67e22', info: '#2563eb',
 };
-
-/** Mesma regra de exibição usada em todo o app do tutor. */
-function statusExibicao(e: Evento): StatusEventoExibicao {
-  if (e.status === 'concluido' || e.status === 'cancelado') return e.status;
-  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
-  const d = new Date(e.data); d.setHours(0, 0, 0, 0);
-  return d < hoje ? 'atrasado' : e.status;
-}
 
 export default function PerfilScreen() {
   const router = useRouter();
@@ -36,7 +29,7 @@ export default function PerfilScreen() {
     eventos,
     preferencias,
     atualizarPreferencias,
-    resetar,
+    resetarPreferencias,
   } = usePet();
 
   const eventosComStatus = useMemo(
@@ -44,33 +37,33 @@ export default function PerfilScreen() {
     [eventos]
   );
   const total = eventosComStatus.length;
-  const concluidos = eventosComStatus.filter(e => e.statusExibicao === 'concluido').length;
-  const pendentes = eventosComStatus.filter(e => e.statusExibicao === 'solicitado' || e.statusExibicao === 'confirmado').length;
-  const atrasados = eventosComStatus.filter(e => e.statusExibicao === 'atrasado').length;
+  const concluidos = eventosComStatus.filter(e => e.statusExibicao === 'CONCLUIDO').length;
+  const pendentes = eventosComStatus.filter(e => e.statusExibicao === 'SOLICITADO' || e.statusExibicao === 'CONFIRMADO').length;
+  const atrasados = eventosComStatus.filter(e => e.statusExibicao === 'ATRASADO').length;
   const especieInfo = ESPECIES.find(e => e.valor === petAtivo?.especie);
 
   function handleResetar() {
-    alertar(
-      'Resetar todos os dados?',
-      'Isso apaga todos os pets, eventos e recompensas cadastrados. Essa ação não pode ser desfeita.',
+    confirmar(
+      'Resetar configurações?',
+      'Isso redefine as preferências locais de notificação do aplicativo.',
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { texto: 'Cancelar', estilo: 'cancel' },
         {
-          text: 'Resetar',
-          style: 'destructive',
-          onPress: () => resetar().then(() => router.replace('/login')),
+          texto: 'Resetar',
+          estilo: 'destructive',
+          aoConfirmar: () => resetarPreferencias().then(() => router.replace('/login')),
         },
       ]
     );
   }
 
   function handleSair() {
-    alertar('Sair da conta?', 'Você precisará entrar novamente para acessar seus pets e eventos.', [
-      { text: 'Cancelar', style: 'cancel' },
+    confirmar('Sair da conta?', 'Você precisará entrar novamente para acessar seus pets e eventos.', [
+      { texto: 'Cancelar', estilo: 'cancel' },
       {
-        text: 'Sair',
-        style: 'destructive',
-        onPress: async () => {
+        texto: 'Sair',
+        estilo: 'destructive',
+        aoConfirmar: async () => {
           await authService.logout();
           router.replace('/login');
         },
@@ -83,12 +76,12 @@ export default function PerfilScreen() {
       alertar('Não é possível remover', 'Você precisa ter pelo menos 1 pet cadastrado.');
       return;
     }
-    alertar(
+    confirmar(
       `Remover ${nome}?`,
-      'Os eventos de saúde e recompensas desse pet também serão perdidos.',
+      'Os eventos de saúde desse pet também serão removidos.',
       [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Remover', style: 'destructive', onPress: () => removerPet(id) },
+        { texto: 'Cancelar', estilo: 'cancel' },
+        { texto: 'Remover', estilo: 'destructive', aoConfirmar: () => removerPet(id) },
       ]
     );
   }

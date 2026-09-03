@@ -1,9 +1,19 @@
-import React from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
 import { usePet } from '../../context/PetContext';
+import { useAuth } from '../../context/AuthContext';
+import {
+  useCatalogoRecompensas,
+  useSaldoRecompensas,
+  useMeusResgates,
+  useResgatar,
+} from '../../hooks/useRecompensas';
+import { useConquistas } from '../../hooks/useConquistas';
 import { AppIcon } from '../../components/AppIcon';
 import { PetSwitcher } from '../../components/PetSwitcher';
-import { alertar } from '../../utils/alert';
+import { alertar, confirmar } from '../../utils/alert';
+import { META_CONSULTAS_RECOMPENSA } from '../../constants/gamification';
+import type { Recompensa } from '../../types';
 
 const C = {
   g900: '#0a2218', g800: '#0e3326', g700: '#155c3f', g600: '#1a7a52',
@@ -12,6 +22,7 @@ const C = {
   text: '#1a1512', muted: '#7a6a5e', border: '#e8e2da', white: '#fff',
   ouro: '#c99a2e', ouroClaro: '#fdf6e3',
   roxo: '#6d4aa8', roxoClaro: '#f1ecfb',
+  danger: '#dc3545',
 };
 
 function formatarData(iso: string): string {
@@ -19,32 +30,51 @@ function formatarData(iso: string): string {
 }
 
 export default function RecompensasScreen() {
-  const {
-    petAtivo,
-    metaConsultas,
-    consultasConcluidasTotal,
-    consultasNoCicloAtual,
-    recompensasDisponiveis,
-    recompensas,
-    resgatarRecompensa,
-    nivelInfo,
-    conquistas,
-    conquistasDesbloqueadas,
-  } = usePet();
+  const { petAtivo, eventos, nivelInfo } = usePet();
+  const { autenticado } = useAuth();
 
+  const { data: catalogo = [], isLoading: carregandoCatalogo } = useCatalogoRecompensas(autenticado);
+  const { data: saldoPontos = 0 } = useSaldoRecompensas(autenticado);
+  const { data: resgates = [], isLoading: carregandoResgates } = useMeusResgates(autenticado);
+  const resgatarMutation = useResgatar();
+
+  const { conquistas, conquistasDesbloqueadas } = useConquistas(!!petAtivo, eventos, resgates);
+
+  const metaConsultas = META_CONSULTAS_RECOMPENSA;
+  const consultasConcluidasTotal = useMemo(
+    () => eventos.filter(e => e.status === 'CONCLUIDO').length,
+    [eventos]
+  );
+  const consultasNoCicloAtual = consultasConcluidasTotal % metaConsultas;
   const faltam = Math.max(0, metaConsultas - consultasNoCicloAtual);
   const pct = Math.min(100, Math.round((consultasNoCicloAtual / metaConsultas) * 100));
-  const historico = recompensas.filter(r => r.resgatada).sort(
-    (a, b) => new Date(b.resgatadaEm ?? b.criadaEm).getTime() - new Date(a.resgatadaEm ?? a.criadaEm).getTime()
+
+  const historico = useMemo(
+    () => [...resgates].sort((a, b) => new Date(b.dataResgate).getTime() - new Date(a.dataResgate).getTime()),
+    [resgates]
   );
 
-  function handleResgatar(id: string) {
-    alertar(
-      'Resgatar consulta grátis?',
-      `Essa consulta grátis será usada para ${petAtivo?.nome ?? 'seu pet'}. Apresente esse resgate na clínica.`,
+  function handleResgatar(r: Recompensa) {
+    if (saldoPontos < r.custoPontos) {
+      alertar('Pontos insuficientes', `Essa recompensa custa ${r.custoPontos} pontos. Seu saldo é de ${saldoPontos} pontos.`);
+      return;
+    }
+    confirmar(
+      'Resgatar benefício?',
+      `Deseja resgatar "${r.nome}" por ${r.custoPontos} pontos para ${petAtivo?.nome ?? 'seu pet'}? Apresente esse resgate na clínica veterinária.`,
       [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Resgatar', onPress: () => resgatarRecompensa(id) },
+        { texto: 'Cancelar', estilo: 'cancel' },
+        {
+          texto: 'Resgatar',
+          aoConfirmar: async () => {
+            try {
+              await resgatarMutation.mutateAsync(r.id);
+              alertar('Resgate efetuado!', 'Apresente o comprovante de resgate na clínica veterinária.');
+            } catch {
+              alertar('Erro ao resgatar', 'Não foi possível concluir o resgate. Tente novamente.');
+            }
+          },
+        },
       ]
     );
   }
@@ -60,7 +90,7 @@ export default function RecompensasScreen() {
         </View>
         <Text style={s.bannerTitulo}>Programa de Fidelidade</Text>
         <Text style={s.bannerSub}>
-          A cada {metaConsultas} consultas concluídas, {petAtivo?.nome ?? 'seu pet'} ganha 1 consulta grátis
+          Acumule pontos em cada atendimento e resgate benefícios exclusivos para {petAtivo?.nome ?? 'seu pet'}.
         </Text>
       </View>
 
@@ -88,7 +118,7 @@ export default function RecompensasScreen() {
 
       <View style={s.progressoCard}>
         <View style={s.progressoHead}>
-          <Text style={s.progressoLbl}>Progresso atual</Text>
+          <Text style={s.progressoLbl}>Ciclo de atendimentos</Text>
           <Text style={s.progressoContagem}>{consultasNoCicloAtual}/{metaConsultas}</Text>
         </View>
         <View style={s.barraTrack}>
@@ -96,8 +126,8 @@ export default function RecompensasScreen() {
         </View>
         <Text style={s.progressoHint}>
           {faltam === 0
-            ? 'Meta atingida! Confira seu cupom abaixo 🎉'
-            : `Faltam ${faltam} consulta${faltam !== 1 ? 's' : ''} concluída${faltam !== 1 ? 's' : ''} para o próximo cupom`}
+            ? 'Meta do ciclo atingida! Parabéns pelo cuidado contínuo 🎉'
+            : `Faltam ${faltam} evento${faltam !== 1 ? 's' : ''} concluído${faltam !== 1 ? 's' : ''} para completar o ciclo`}
         </Text>
 
         <View style={s.dotsRow}>
@@ -114,28 +144,51 @@ export default function RecompensasScreen() {
         </View>
       </View>
 
-      <Text style={s.secLabel}>Cupons disponíveis</Text>
-      {recompensasDisponiveis.length === 0 ? (
+      <View style={s.secLabelRow}>
+        <Text style={s.secLabel}>Benefícios do Catálogo</Text>
+        <Text style={s.secLabelContagem}>Saldo: {saldoPontos} pts</Text>
+      </View>
+
+      {carregandoCatalogo ? (
+        <View style={s.emptyCard}>
+          <ActivityIndicator color={C.g600} />
+        </View>
+      ) : catalogo.length === 0 ? (
         <View style={s.emptyCard}>
           <AppIcon name="ribbon-outline" set="Ionicons" size={32} color={C.muted} style={{ marginBottom: 8 }} />
-          <Text style={s.emptyTitle}>Nenhum cupom por enquanto</Text>
-          <Text style={s.emptySub}>Continue registrando consultas para desbloquear sua primeira consulta grátis</Text>
+          <Text style={s.emptyTitle}>Nenhum benefício disponível no momento</Text>
+          <Text style={s.emptySub}>Novas recompensas aparecerão aqui em breve.</Text>
         </View>
       ) : (
-        recompensasDisponiveis.map(r => (
-          <View key={r.id} style={s.cupomCard}>
-            <View style={s.cupomIconWrap}>
-              <AppIcon name="gift" set="Ionicons" size={22} color={C.ouro} />
+        catalogo.map(r => {
+          const podeResgatar = saldoPontos >= r.custoPontos;
+          const isPending = resgatarMutation.isPending && resgatarMutation.variables === r.id;
+
+          return (
+            <View key={r.id} style={s.cupomCard}>
+              <View style={s.cupomIconWrap}>
+                <AppIcon name="gift" set="Ionicons" size={22} color={C.ouro} />
+              </View>
+              <View style={s.cupomInfo}>
+                <Text style={s.cupomTitulo}>{r.nome}</Text>
+                <Text style={s.cupomSub}>
+                  {r.descricao ? `${r.descricao} • ` : ''}{r.custoPontos} pontos
+                </Text>
+              </View>
+              <Pressable
+                style={[s.btnResgatar, (!podeResgatar || isPending) && { opacity: 0.5 }]}
+                onPress={() => handleResgatar(r)}
+                disabled={!podeResgatar || isPending}
+              >
+                {isPending ? (
+                  <ActivityIndicator size="small" color={C.white} />
+                ) : (
+                  <Text style={s.btnResgatarText}>Resgatar</Text>
+                )}
+              </Pressable>
             </View>
-            <View style={s.cupomInfo}>
-              <Text style={s.cupomTitulo}>1 Consulta grátis</Text>
-              <Text style={s.cupomSub}>Conquistado em {formatarData(r.criadaEm)}</Text>
-            </View>
-            <Pressable style={s.btnResgatar} onPress={() => handleResgatar(r.id)}>
-              <Text style={s.btnResgatarText}>Resgatar</Text>
-            </Pressable>
-          </View>
-        ))
+          );
+        })
       )}
 
       <View style={s.secLabelRow}>
@@ -168,33 +221,43 @@ export default function RecompensasScreen() {
       <View style={s.statsCard}>
         <View style={s.statItem}>
           <Text style={s.statValor}>{consultasConcluidasTotal}</Text>
-          <Text style={s.statLabel}>Consultas realizadas</Text>
+          <Text style={s.statLabel}>Eventos concluídos</Text>
         </View>
         <View style={s.statDivisor} />
         <View style={s.statItem}>
-          <Text style={s.statValor}>{recompensas.length}</Text>
-          <Text style={s.statLabel}>Cupons conquistados</Text>
+          <Text style={s.statValor}>{saldoPontos}</Text>
+          <Text style={s.statLabel}>Pontos disponíveis</Text>
         </View>
         <View style={s.statDivisor} />
         <View style={s.statItem}>
           <Text style={s.statValor}>{historico.length}</Text>
-          <Text style={s.statLabel}>Cupons resgatados</Text>
+          <Text style={s.statLabel}>Resgates realizados</Text>
         </View>
       </View>
 
-      {historico.length > 0 && (
+      {carregandoResgates ? (
+        <View style={s.emptyCard}>
+          <ActivityIndicator color={C.g600} />
+        </View>
+      ) : historico.length > 0 && (
         <>
           <Text style={s.secLabel}>Histórico de resgates</Text>
           <View style={s.historicoCard}>
             {historico.map((r, idx) => (
               <View key={r.id} style={[s.historicoRow, idx < historico.length - 1 && s.historicoRowBorder]}>
-                <AppIcon name="checkmark-circle" set="Ionicons" size={18} color={C.g500} />
+                <AppIcon
+                  name={r.status === 'VALIDADO' ? 'checkmark-circle' : r.status === 'PENDENTE' ? 'time-outline' : 'close-circle'}
+                  set="Ionicons"
+                  size={18}
+                  color={r.status === 'VALIDADO' ? C.g500 : r.status === 'PENDENTE' ? C.ouro : C.danger}
+                />
                 <View style={{ flex: 1 }}>
-                  <Text style={s.historicoTitulo}>Consulta grátis resgatada</Text>
+                  <Text style={s.historicoTitulo}>{r.nomeRecompensa}</Text>
                   <Text style={s.historicoData}>
-                    {r.resgatadaEm ? formatarData(r.resgatadaEm) : '—'}
+                    {formatarData(r.dataResgate)} • {r.status}
                   </Text>
                 </View>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: C.muted }}>-{r.custoPontos} pts</Text>
               </View>
             ))}
           </View>
