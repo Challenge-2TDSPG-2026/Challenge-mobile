@@ -3,12 +3,22 @@ import { petService } from '../services/petService';
 import type { Pet } from '../types';
 
 const CHAVE_PETS = ['pets'] as const;
+const chavePet = (id: string) => ['pets', id] as const;
 
 export function usePets(habilitado: boolean) {
   return useQuery({
     queryKey: CHAVE_PETS,
     queryFn: petService.listarPets,
     enabled: habilitado,
+  });
+}
+
+export function usePetPorId(id: string | null, habilitado: boolean) {
+  return useQuery({
+    queryKey: chavePet(id ?? ''),
+    queryFn: () => petService.buscarPorId(id as string),
+    enabled: habilitado && id !== null,
+    staleTime: 60_000,
   });
 }
 
