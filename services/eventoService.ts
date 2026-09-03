@@ -35,7 +35,7 @@ interface SolicitarEventoInput {
   idPet: string;
   idTipoEvento: string;
   idVeterinario: string;
-  data: string; // yyyy-MM-dd
+  data: string;
   observacao?: string;
 }
 
@@ -55,6 +55,19 @@ export const eventoService = {
       dsObservacao: input.observacao ?? null,
     });
     return paraEventoApp(dto, input.idTipoEvento, input.idVeterinario);
+  },
+
+  async confirmarEvento(id: string): Promise<Evento> {
+    const dto = await api.patch<EventoResponseApi>(`/eventos/${id}/confirmar`);
+    return paraEventoApp(dto, '', '');
+  },
+
+  async concluirEvento(id: string, observacao?: string, custo?: number): Promise<Evento> {
+    const dto = await api.patch<EventoResponseApi>(`/eventos/${id}/concluir`, {
+      dsObservacao: observacao ?? null,
+      vlCusto: custo ?? null,
+    });
+    return paraEventoApp(dto, '', '');
   },
 
   async cancelarEvento(id: string, motivo: string): Promise<Evento> {
