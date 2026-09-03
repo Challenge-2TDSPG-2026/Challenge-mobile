@@ -59,8 +59,8 @@ export async function adicionarEventoAoCalendario(evento: Evento, pet?: Pet | nu
   const fim = new Date(inicio.getTime() + 60 * 60 * 1000);
 
   return Calendar.createEventAsync(calendarioId, {
-    title: `${evento.titulo}${pet ? ` — ${pet.nome}` : ''}`,
-    notes: evento.descricao ?? '',
+    title: `${evento.nomeTipoEvento}${pet ? ` — ${pet.nome}` : ''}`,
+    notes: evento.observacao ?? '',
     startDate: inicio,
     endDate: fim,
     timeZone: undefined,
@@ -93,7 +93,7 @@ export async function agendarLembretes(
     const id = await Notifications.scheduleNotificationAsync({
       content: {
         title: dias === 0 ? 'Evento hoje' : `Evento em ${dias} dia${dias > 1 ? 's' : ''}`,
-        body: `${evento.titulo}${pet ? ` — ${pet.nome}` : ''}`,
+        body: `${evento.nomeTipoEvento}${pet ? ` — ${pet.nome}` : ''}`,
         data: { eventoId: evento.id },
       },
       trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: disparo },

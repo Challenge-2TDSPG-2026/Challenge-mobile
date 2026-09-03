@@ -131,3 +131,5 @@ export function obterVisualTipoEvento(nomeTipo: string): VisualTipoEvento {
   const regra = REGRAS_VISUAL_TIPO_EVENTO.find(r => r.palavras.some(p => nomeNormalizado.includes(p)));
   return regra?.visual ?? VISUAL_PADRAO;
 }
+
+export { TIPOS_EVENTO, SUGESTOES_TITULO, STATUS_EVENTO } from './events';
