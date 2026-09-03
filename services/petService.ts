@@ -56,6 +56,11 @@ export const petService = {
     return dtos.map(paraPetApp);
   },
 
+  async buscarPorId(id: string): Promise<Pet> {
+    const dto = await api.get<PetResponseApi>(`/pets/${id}`);
+    return paraPetApp(dto);
+  },
+
   async criarPet(pet: Pet): Promise<Pet> {
     const dto = await api.post<PetResponseApi>('/pets', paraRequestApi(pet));
     return paraPetApp(dto);
