@@ -3,6 +3,7 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { PetProvider, usePet } from '../context/PetContext';
+import { VetProvider } from '../context/VetContext';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -14,39 +15,52 @@ const queryClient = new QueryClient({
 });
 
 function RootNavigator() {
-  const { autenticado, carregando: carregandoAuth } = useAuth();
+  const { sessao, autenticado, carregando: carregandoAuth } = useAuth();
   const { onboardingConcluido, carregando: carregandoPet } = usePet();
   const router = useRouter();
   const segments = useSegments();
 
-  const carregando = carregandoAuth || carregandoPet;
+  const ehTutor = sessao?.perfil === 'TUTOR';
+  const ehVeterinario = sessao?.perfil === 'VETERINARIO';
+
+  const carregando = carregandoAuth || (ehTutor && carregandoPet);
 
   useEffect(() => {
     if (carregando) return;
 
-    const inOnboarding = segments[0] === 'onboarding';
+    const inLogin = segments[0] === 'login';
+    const inTutor = segments[0] === '(tutor)';
+    const inVet = segments[0] === '(vet)';
 
     if (!autenticado) {
-      if (!inOnboarding) router.replace('/onboarding');
+      if (!inLogin) router.replace('/login');
       return;
     }
 
-    if (!onboardingConcluido) {
-      if (!inOnboarding) router.replace('/onboarding');
+    if (ehVeterinario) {
+      if (!inVet) router.replace('/(vet)');
       return;
     }
 
-    if (inOnboarding) {
-      router.replace('/(tabs)');
+    if (ehTutor) {
+      if (!onboardingConcluido) {
+        return;
+      }
+      if (!inTutor) router.replace('/(tutor)');
+      return;
     }
-  }, [autenticado, onboardingConcluido, carregando, segments]);
+
+    if (!inLogin) router.replace('/login');
+  }, [autenticado, ehTutor, ehVeterinario, onboardingConcluido, carregando, segments]);
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="onboarding" />
-      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="login" />
+      <Stack.Screen name="(tutor)" />
+      <Stack.Screen name="(vet)" />
       <Stack.Screen name="add-evento" options={{ presentation: 'modal', headerShown: false }} />
       <Stack.Screen name="add-pet" options={{ presentation: 'modal', headerShown: false }} />
+      <Stack.Screen name="paciente/[id]" options={{ headerShown: true }} />
     </Stack>
   );
 }
@@ -56,7 +70,9 @@ export default function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <PetProvider>
-          <RootNavigator />
+          <VetProvider>
+            <RootNavigator />
+          </VetProvider>
         </PetProvider>
       </AuthProvider>
     </QueryClientProvider>
