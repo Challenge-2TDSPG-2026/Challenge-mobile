@@ -1,264 +1,221 @@
-import React, { useMemo, useState } from 'react';
-import { View, Text, ScrollView, Pressable, TextInput, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, ScrollView, Pressable, StyleSheet, TextInput, ActivityIndicator } from 'react-native';
 import { useVet } from '../../context/VetContext';
-import { DIAS_SEMANA_LABEL } from '../../constants';
 import { AppIcon } from '../../components/AppIcon';
-import { alertar } from '../../utils/alert';
-import type { FaixaDisponibilidade, BloqueioAgenda } from '../../types';
+import { alertar, confirmar } from '../../utils/alert';
 
 const C = {
-  g800: '#0e3326', g600: '#1a7a52', g500: '#22a06b', g200: '#a8e6c7', g100: '#d4f2e4',
-  cream: '#fafaf8', w50: '#f9f7f4', w100: '#f0ece5',
-  text: '#1a1512', muted: '#7a6a5e', border: '#e8e2da', white: '#fff',
+  g800: '#0e3326', g600: '#1a7a52', g100: '#d4f2e4',
+  cream: '#fafaf8', w50: '#f9f7f4', text: '#1a1512', muted: '#7a6a5e', border: '#e8e2da', white: '#fff',
   danger: '#dc3545',
 };
 
-function formatarHoraInput(text: string): string {
-  const n = text.replace(/\D/g, '');
-  if (n.length <= 2) return n;
-  return `${n.slice(0, 2)}:${n.slice(2, 4)}`;
-}
+// Convenção do Java: 1=segunda ... 7=domingo (não é a mesma do Date.getDay() do JS)
+const DIAS_SEMANA = [
+  { valor: 1, label: 'Segunda' }, { valor: 2, label: 'Terça' }, { valor: 3, label: 'Quarta' },
+  { valor: 4, label: 'Quinta' }, { valor: 5, label: 'Sexta' }, { valor: 6, label: 'Sábado' }, { valor: 7, label: 'Domingo' },
+];
 
-function formatarDataInput(text: string): string {
+function formatarDataBR(text: string): string {
   const n = text.replace(/\D/g, '');
   if (n.length <= 2) return n;
   if (n.length <= 4) return `${n.slice(0, 2)}/${n.slice(2)}`;
   return `${n.slice(0, 2)}/${n.slice(2, 4)}/${n.slice(4, 8)}`;
 }
 
-function parsarData(s: string): string {
-  const [dd, mm, aaaa] = s.split('/');
-  return new Date(`${aaaa}-${mm}-${dd}T00:00:00`).toISOString();
+function formatarHora(text: string): string {
+  const n = text.replace(/\D/g, '');
+  if (n.length <= 2) return n;
+  return `${n.slice(0, 2)}:${n.slice(2, 4)}`;
 }
 
-function formatarDataExibicao(iso: string): string {
-  return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+function paraIso(dataBr: string): string {
+  const [dd, mm, aaaa] = dataBr.split('/');
+  return `${aaaa}-${mm}-${dd}`;
 }
 
-export default function VetDisponibilidadeScreen() {
+export default function DisponibilidadeScreen() {
   const {
-    veterinarioAtivoId,
-    disponibilidade,
-    adicionarFaixaDisponibilidade,
-    removerFaixaDisponibilidade,
-    bloqueios,
-    adicionarBloqueio,
-    removerBloqueio,
+    disponibilidade, adicionarFaixaDisponibilidade, removerFaixaDisponibilidade,
+    bloqueios, adicionarBloqueio, removerBloqueio, carregando,
   } = useVet();
 
-  const [diaSelecionado, setDiaSelecionado] = useState<FaixaDisponibilidade['diaSemana']>(1);
+  const [diaSelecionado, setDiaSelecionado] = useState(1);
   const [horaInicio, setHoraInicio] = useState('');
   const [horaFim, setHoraFim] = useState('');
-  const [erroFaixa, setErroFaixa] = useState('');
+  const [salvandoFaixa, setSalvandoFaixa] = useState(false);
 
-  const [dataBloqueio, setDataBloqueio] = useState('');
+  const [dataInicioBloqueio, setDataInicioBloqueio] = useState('');
+  const [dataFimBloqueio, setDataFimBloqueio] = useState('');
   const [motivoBloqueio, setMotivoBloqueio] = useState('');
-  const [erroBloqueio, setErroBloqueio] = useState('');
-
-  const disponibilidadeOrdenada = useMemo(
-    () => [...disponibilidade].sort((a, b) => a.diaSemana - b.diaSemana || a.horaInicio.localeCompare(b.horaInicio)),
-    [disponibilidade]
-  );
-
-  const bloqueiosOrdenados = useMemo(
-    () => [...bloqueios].sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime()),
-    [bloqueios]
-  );
+  const [salvandoBloqueio, setSalvandoBloqueio] = useState(false);
 
   async function handleAdicionarFaixa() {
-    setErroFaixa('');
     if (horaInicio.length !== 5 || horaFim.length !== 5) {
-      setErroFaixa('Preencha os horários no formato HH:MM');
+      alertar('Horário inválido', 'Informe início e fim no formato HH:mm.');
       return;
     }
     if (horaInicio >= horaFim) {
-      setErroFaixa('O horário inicial deve ser antes do horário final');
+      alertar('Horário inválido', 'O horário de início deve ser antes do horário de fim.');
       return;
     }
-    if (!veterinarioAtivoId) return;
-
-    const faixa: FaixaDisponibilidade = {
-      id: Date.now().toString(),
-      veterinarioId: veterinarioAtivoId,
-      diaSemana: diaSelecionado,
-      horaInicio,
-      horaFim,
-    };
-    await adicionarFaixaDisponibilidade(faixa);
-    setHoraInicio('');
-    setHoraFim('');
+    setSalvandoFaixa(true);
+    try {
+      await adicionarFaixaDisponibilidade({ diaSemana: diaSelecionado, horaInicio, horaFim });
+      setHoraInicio('');
+      setHoraFim('');
+    } catch {
+      alertar('Não foi possível adicionar', 'Tente novamente em instantes.');
+    } finally {
+      setSalvandoFaixa(false);
+    }
   }
 
   function handleRemoverFaixa(id: string) {
-    alertar('Remover horário?', 'Essa faixa de disponibilidade deixará de aceitar solicitações.', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Remover', style: 'destructive', onPress: () => removerFaixaDisponibilidade(id) },
+    confirmar('Remover horário?', 'Esse horário fixo de atendimento será removido.', [
+      { texto: 'Cancelar', estilo: 'cancel' },
+      { texto: 'Remover', estilo: 'destructive', aoConfirmar: () => removerFaixaDisponibilidade(id) },
     ]);
   }
 
   async function handleAdicionarBloqueio() {
-    setErroBloqueio('');
-    if (dataBloqueio.length !== 10) {
-      setErroBloqueio('Data inválida (DD/MM/AAAA)');
+    if (dataInicioBloqueio.length < 10 || dataFimBloqueio.length < 10) {
+      alertar('Data inválida', 'Informe início e fim no formato DD/MM/AAAA.');
       return;
     }
-    if (!veterinarioAtivoId) return;
-
-    const bloqueio: BloqueioAgenda = {
-      id: Date.now().toString(),
-      veterinarioId: veterinarioAtivoId,
-      data: parsarData(dataBloqueio),
-      motivo: motivoBloqueio.trim() || undefined,
-    };
-    await adicionarBloqueio(bloqueio);
-    setDataBloqueio('');
-    setMotivoBloqueio('');
+    setSalvandoBloqueio(true);
+    try {
+      await adicionarBloqueio({
+        dataInicio: paraIso(dataInicioBloqueio),
+        dataFim: paraIso(dataFimBloqueio),
+        motivo: motivoBloqueio.trim() || undefined,
+      });
+      setDataInicioBloqueio('');
+      setDataFimBloqueio('');
+      setMotivoBloqueio('');
+    } catch {
+      alertar('Não foi possível adicionar', 'Verifique se a data de fim é igual ou posterior à de início.');
+    } finally {
+      setSalvandoBloqueio(false);
+    }
   }
 
   function handleRemoverBloqueio(id: string) {
-    alertar('Remover bloqueio?', 'Esse dia voltará a ficar disponível para solicitações.', [
-      { text: 'Cancelar', style: 'cancel' },
-      { text: 'Remover', style: 'destructive', onPress: () => removerBloqueio(id) },
+    confirmar('Remover bloqueio?', 'Esse período voltará a ficar disponível na sua agenda.', [
+      { texto: 'Cancelar', estilo: 'cancel' },
+      { texto: 'Remover', estilo: 'destructive', aoConfirmar: () => removerBloqueio(id) },
     ]);
   }
-
-  if (!veterinarioAtivoId) return null;
 
   return (
     <ScrollView style={s.container} contentContainerStyle={s.content}>
 
-      {/* Horários de atendimento */}
-      <Text style={s.secLabel}>Horários de Atendimento</Text>
-
+      <Text style={s.secLabel}>Horários fixos de atendimento</Text>
       <View style={s.card}>
-        {disponibilidadeOrdenada.length === 0 ? (
-          <View style={s.empty}>
-            <AppIcon name="time-outline" set="Ionicons" size={32} color={C.muted} style={{ marginBottom: 8 }} />
-            <Text style={s.emptyTitle}>Nenhum horário definido</Text>
-            <Text style={s.emptySub}>Tutores só conseguem solicitar consultas dentro dos horários cadastrados</Text>
-          </View>
-        ) : (
-          disponibilidadeOrdenada.map((faixa, idx) => (
-            <View key={faixa.id} style={[s.faixaRow, idx < disponibilidadeOrdenada.length - 1 && s.divisor]}>
-              <View style={s.faixaDiaBadge}>
-                <Text style={s.faixaDiaBadgeText}>{DIAS_SEMANA_LABEL[faixa.diaSemana].slice(0, 3)}</Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.faixaDia}>{DIAS_SEMANA_LABEL[faixa.diaSemana]}</Text>
-                <Text style={s.faixaHorario}>{faixa.horaInicio} — {faixa.horaFim}</Text>
-              </View>
-              <Pressable onPress={() => handleRemoverFaixa(faixa.id)} hitSlop={8}>
-                <AppIcon name="trash-outline" set="Ionicons" size={18} color={C.danger} />
-              </Pressable>
-            </View>
-          ))
-        )}
-      </View>
-
-      <View style={s.formCard}>
-        <Text style={s.fl}>Dia da semana</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 14 }}>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            {DIAS_SEMANA_LABEL.map((label, idx) => (
-              <Pressable
-                key={label}
-                style={[s.diaBtn, diaSelecionado === idx && s.diaBtnAtivo]}
-                onPress={() => setDiaSelecionado(idx as FaixaDisponibilidade['diaSemana'])}
-              >
-                <Text style={[s.diaBtnText, diaSelecionado === idx && s.diaBtnTextAtivo]}>{label.slice(0, 3)}</Text>
-              </Pressable>
-            ))}
-          </View>
-        </ScrollView>
-
-        <View style={s.fr}>
-          <View style={s.campo}>
-            <Text style={s.fl}>Início *</Text>
-            <TextInput
-              style={s.fi}
-              value={horaInicio}
-              onChangeText={v => setHoraInicio(formatarHoraInput(v))}
-              placeholder="09:00"
-              placeholderTextColor={C.muted}
-              keyboardType="numeric"
-              maxLength={5}
-            />
-          </View>
-          <View style={s.campo}>
-            <Text style={s.fl}>Fim *</Text>
-            <TextInput
-              style={s.fi}
-              value={horaFim}
-              onChangeText={v => setHoraFim(formatarHoraInput(v))}
-              placeholder="18:00"
-              placeholderTextColor={C.muted}
-              keyboardType="numeric"
-              maxLength={5}
-            />
-          </View>
+        <View style={s.diasRow}>
+          {DIAS_SEMANA.map(d => (
+            <Pressable
+              key={d.valor}
+              style={[s.diaBtn, diaSelecionado === d.valor && s.diaBtnAtivo]}
+              onPress={() => setDiaSelecionado(d.valor)}
+            >
+              <Text style={[s.diaBtnText, diaSelecionado === d.valor && s.diaBtnTextAtivo]}>{d.label.slice(0, 3)}</Text>
+            </Pressable>
+          ))}
         </View>
-        {erroFaixa ? <Text style={s.textoErro}>{erroFaixa}</Text> : null}
+        <View style={s.horaRow}>
+          <TextInput
+            style={s.horaInput}
+            value={horaInicio}
+            onChangeText={v => setHoraInicio(formatarHora(v))}
+            placeholder="08:00"
+            placeholderTextColor={C.muted}
+            keyboardType="numeric"
+            maxLength={5}
+          />
+          <Text style={s.horaSep}>até</Text>
+          <TextInput
+            style={s.horaInput}
+            value={horaFim}
+            onChangeText={v => setHoraFim(formatarHora(v))}
+            placeholder="18:00"
+            placeholderTextColor={C.muted}
+            keyboardType="numeric"
+            maxLength={5}
+          />
+          <Pressable style={[s.btnAdicionar, salvandoFaixa && { opacity: 0.6 }]} onPress={handleAdicionarFaixa} disabled={salvandoFaixa}>
+            {salvandoFaixa ? <ActivityIndicator size="small" color={C.white} /> : <AppIcon name="add" set="Ionicons" size={18} color={C.white} />}
+          </Pressable>
+        </View>
 
-        <Pressable style={s.btnAdicionar} onPress={handleAdicionarFaixa}>
-          <AppIcon name="add" set="Ionicons" size={16} color={C.white} style={{ marginRight: 6 }} />
-          <Text style={s.btnAdicionarText}>Adicionar horário</Text>
-        </Pressable>
-      </View>
-
-      {/* Bloqueios de agenda */}
-      <Text style={s.secLabel}>Bloqueios (Férias, Folgas)</Text>
-
-      <View style={s.card}>
-        {bloqueiosOrdenados.length === 0 ? (
-          <View style={s.empty}>
-            <AppIcon name="airplane-outline" set="Ionicons" size={32} color={C.muted} style={{ marginBottom: 8 }} />
-            <Text style={s.emptyTitle}>Nenhum bloqueio cadastrado</Text>
-            <Text style={s.emptySub}>Dias bloqueados não aceitam novas solicitações</Text>
-          </View>
+        {carregando ? (
+          <ActivityIndicator color={C.g600} style={{ marginVertical: 12 }} />
+        ) : disponibilidade.length === 0 ? (
+          <Text style={s.vazioTexto}>Nenhum horário fixo cadastrado ainda.</Text>
         ) : (
-          bloqueiosOrdenados.map((bloqueio, idx) => (
-            <View key={bloqueio.id} style={[s.faixaRow, idx < bloqueiosOrdenados.length - 1 && s.divisor]}>
-              <View style={[s.faixaDiaBadge, { backgroundColor: '#fee2e2' }]}>
-                <AppIcon name="close" set="Ionicons" size={14} color={C.danger} />
+          disponibilidade
+            .sort((a, b) => a.diaSemana - b.diaSemana || a.horaInicio.localeCompare(b.horaInicio))
+            .map(f => (
+              <View key={f.id} style={s.faixaRow}>
+                <Text style={s.faixaTexto}>
+                  {DIAS_SEMANA.find(d => d.valor === f.diaSemana)?.label ?? f.diaSemana} · {f.horaInicio} – {f.horaFim}
+                </Text>
+                <Pressable onPress={() => handleRemoverFaixa(f.id)} hitSlop={8}>
+                  <AppIcon name="trash-outline" set="Ionicons" size={16} color={C.danger} />
+                </Pressable>
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.faixaDia}>{formatarDataExibicao(bloqueio.data)}</Text>
-                {bloqueio.motivo ? <Text style={s.faixaHorario}>{bloqueio.motivo}</Text> : null}
-              </View>
-              <Pressable onPress={() => handleRemoverBloqueio(bloqueio.id)} hitSlop={8}>
-                <AppIcon name="trash-outline" set="Ionicons" size={18} color={C.danger} />
-              </Pressable>
-            </View>
-          ))
+            ))
         )}
       </View>
 
-      <View style={s.formCard}>
-        <Text style={s.fl}>Data *</Text>
+      <Text style={s.secLabel}>Bloqueios de agenda</Text>
+      <View style={s.card}>
+        <View style={s.dataRow}>
+          <TextInput
+            style={[s.horaInput, { flex: 1 }]}
+            value={dataInicioBloqueio}
+            onChangeText={v => setDataInicioBloqueio(formatarDataBR(v))}
+            placeholder="Início DD/MM/AAAA"
+            placeholderTextColor={C.muted}
+            keyboardType="numeric"
+            maxLength={10}
+          />
+          <TextInput
+            style={[s.horaInput, { flex: 1 }]}
+            value={dataFimBloqueio}
+            onChangeText={v => setDataFimBloqueio(formatarDataBR(v))}
+            placeholder="Fim DD/MM/AAAA"
+            placeholderTextColor={C.muted}
+            keyboardType="numeric"
+            maxLength={10}
+          />
+        </View>
         <TextInput
-          style={[s.fi, { marginBottom: 14 }]}
-          value={dataBloqueio}
-          onChangeText={v => setDataBloqueio(formatarDataInput(v))}
-          placeholder="DD/MM/AAAA"
-          placeholderTextColor={C.muted}
-          keyboardType="numeric"
-          maxLength={10}
-        />
-
-        <Text style={s.fl}>Motivo (opcional)</Text>
-        <TextInput
-          style={[s.fi, { marginBottom: 4 }]}
+          style={s.motivoInput}
           value={motivoBloqueio}
           onChangeText={setMotivoBloqueio}
-          placeholder="Ex: Férias"
+          placeholder="Motivo (opcional)"
           placeholderTextColor={C.muted}
         />
-        {erroBloqueio ? <Text style={s.textoErro}>{erroBloqueio}</Text> : null}
-
-        <Pressable style={[s.btnAdicionar, { marginTop: 14 }]} onPress={handleAdicionarBloqueio}>
-          <AppIcon name="add" set="Ionicons" size={16} color={C.white} style={{ marginRight: 6 }} />
-          <Text style={s.btnAdicionarText}>Adicionar bloqueio</Text>
+        <Pressable style={[s.btnAdicionarBloqueio, salvandoBloqueio && { opacity: 0.6 }]} onPress={handleAdicionarBloqueio} disabled={salvandoBloqueio}>
+          <Text style={s.btnAdicionarBloqueioText}>{salvandoBloqueio ? 'Adicionando...' : 'Adicionar bloqueio'}</Text>
         </Pressable>
+
+        {bloqueios.length === 0 ? (
+          <Text style={s.vazioTexto}>Nenhum bloqueio cadastrado.</Text>
+        ) : (
+          bloqueios.map(b => (
+            <View key={b.id} style={s.faixaRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={s.faixaTexto}>{b.dataInicio} até {b.dataFim}</Text>
+                {b.motivo ? <Text style={s.motivoTexto}>{b.motivo}</Text> : null}
+              </View>
+              <Pressable onPress={() => handleRemoverBloqueio(b.id)} hitSlop={8}>
+                <AppIcon name="trash-outline" set="Ionicons" size={16} color={C.danger} />
+              </Pressable>
+            </View>
+          ))
+        )}
       </View>
 
     </ScrollView>
@@ -273,78 +230,36 @@ const s = StyleSheet.create({
     fontSize: 11, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase',
     color: C.muted, marginBottom: 10, marginTop: 4, paddingLeft: 2,
   },
+  card: { backgroundColor: C.white, borderRadius: 14, borderWidth: 1, borderColor: C.border, padding: 16, marginBottom: 20 },
 
-  card: {
-    backgroundColor: C.white,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: C.border,
-    paddingHorizontal: 16,
-    marginBottom: 14,
-    overflow: 'hidden',
-  },
-  divisor: { borderBottomWidth: 1, borderBottomColor: C.border },
-
-  faixaRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, gap: 12 },
-  faixaDiaBadge: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: C.g100, justifyContent: 'center', alignItems: 'center',
-  },
-  faixaDiaBadgeText: { fontSize: 11, fontWeight: '700', color: C.g800, textTransform: 'uppercase' },
-  faixaDia: { fontSize: 13, fontWeight: '700', color: C.text },
-  faixaHorario: { fontSize: 12, color: C.muted, marginTop: 2 },
-
-  empty: { alignItems: 'center', paddingVertical: 24 },
-  emptyTitle: { fontSize: 13, fontWeight: '700', color: C.text, marginBottom: 4 },
-  emptySub: { fontSize: 11, color: C.muted, textAlign: 'center', paddingHorizontal: 12, paddingBottom: 8 },
-
-  formCard: {
-    backgroundColor: C.white,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: C.border,
-    borderStyle: 'dashed',
-    padding: 16,
-    marginBottom: 24,
-  },
-  fl: {
-    fontSize: 11, fontWeight: '700', letterSpacing: 0.6,
-    textTransform: 'uppercase', color: C.muted, marginBottom: 7,
-  },
-  fr: { flexDirection: 'row', gap: 12 },
-  campo: { flex: 1 },
-  fi: {
-    backgroundColor: C.w50,
-    borderWidth: 1.5,
-    borderColor: C.border,
-    borderRadius: 10,
-    paddingHorizontal: 13,
-    paddingVertical: 10,
-    fontSize: 14,
-    color: C.text,
-  },
-  textoErro: { color: C.danger, fontSize: 12, marginTop: 8 },
-
-  diaBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: C.w50,
-    borderWidth: 1.5,
-    borderColor: C.border,
-  },
+  diasRow: { flexDirection: 'row', gap: 6, marginBottom: 14, flexWrap: 'wrap' },
+  diaBtn: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: 8, backgroundColor: C.w50, borderWidth: 1, borderColor: C.border },
   diaBtnAtivo: { backgroundColor: C.g600, borderColor: C.g600 },
-  diaBtnText: { fontSize: 12, fontWeight: '700', color: C.muted, textTransform: 'uppercase' },
+  diaBtnText: { fontSize: 11, fontWeight: '700', color: C.text },
   diaBtnTextAtivo: { color: C.white },
 
-  btnAdicionar: {
-    flexDirection: 'row',
-    backgroundColor: C.g600,
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 16,
+  horaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
+  horaInput: {
+    backgroundColor: C.w50, borderWidth: 1.5, borderColor: C.border, borderRadius: 10,
+    paddingHorizontal: 12, paddingVertical: 9, fontSize: 13, color: C.text, textAlign: 'center', minWidth: 70,
   },
-  btnAdicionarText: { color: C.white, fontSize: 13, fontWeight: '700' },
+  horaSep: { fontSize: 12, color: C.muted },
+  btnAdicionar: { backgroundColor: C.g600, width: 38, height: 38, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+
+  vazioTexto: { fontSize: 12, color: C.muted, fontStyle: 'italic', paddingVertical: 6 },
+
+  faixaRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingVertical: 10, borderTopWidth: 1, borderTopColor: C.border,
+  },
+  faixaTexto: { fontSize: 13, color: C.text, fontWeight: '600' },
+  motivoTexto: { fontSize: 11, color: C.muted, marginTop: 2 },
+
+  dataRow: { flexDirection: 'row', gap: 8, marginBottom: 10 },
+  motivoInput: {
+    backgroundColor: C.w50, borderWidth: 1.5, borderColor: C.border, borderRadius: 10,
+    paddingHorizontal: 12, paddingVertical: 9, fontSize: 13, color: C.text, marginBottom: 10,
+  },
+  btnAdicionarBloqueio: { backgroundColor: C.g600, paddingVertical: 10, borderRadius: 10, alignItems: 'center', marginBottom: 4 },
+  btnAdicionarBloqueioText: { color: C.white, fontSize: 13, fontWeight: '700' },
 });
