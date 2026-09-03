@@ -22,6 +22,15 @@ export function usePetPorId(id: string | null, habilitado: boolean) {
   });
 }
 
+export function usePetsPorIds(ids: string[], habilitado: boolean) {
+  const idsOrdenados = [...ids].sort();
+  return useQuery({
+    queryKey: ['pets-por-ids', ...idsOrdenados],
+    queryFn: () => Promise.all(idsOrdenados.map(id => petService.buscarPorId(id))),
+    enabled: habilitado && idsOrdenados.length > 0,
+  });
+}
+
 export function useCriarPet() {
   const queryClient = useQueryClient();
   return useMutation({
