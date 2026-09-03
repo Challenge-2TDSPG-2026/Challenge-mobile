@@ -1,20 +1,23 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, ScrollView, Pressable,
-  StyleSheet, KeyboardAvoidingView, Platform,
+  StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator,
 } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
 import { usePet } from '../context/PetContext';
-import { TIPOS_EVENTO, SUGESTOES_TITULO } from '../constants';
+import { useTiposEvento, useVeterinarios, useSolicitarEvento } from '../hooks/useEventos';
+import { obterVisualTipoEvento } from '../constants';
 import { AppIcon } from '../components/AppIcon';
-import type { Evento } from '../types';
+import { ApiError } from '../services/api/httpClient';
+import { alertar } from '../utils/alert';
+import type { TipoEvento, Veterinario } from '../types';
 
 const C = {
   g900: '#0a2218', g800: '#0e3326', g700: '#155c3f', g600: '#1a7a52',
   g500: '#22a06b', g400: '#3db87e', g200: '#a8e6c7', g100: '#d4f2e4', g50: '#edfaf3',
   cream: '#fafaf8', w50: '#f9f7f4', w100: '#f0ece5',
   text: '#1a1512', muted: '#7a6a5e', border: '#e8e2da', white: '#fff',
-  danger: '#dc3545', warn: '#e67e22', info: '#2563eb',
+  danger: '#dc3545', warn: '#e67e22',
 };
 
 function formatarData(text: string): string {
@@ -24,53 +27,56 @@ function formatarData(text: string): string {
   return `${n.slice(0, 2)}/${n.slice(2, 4)}/${n.slice(4, 8)}`;
 }
 
+function paraIsoData(s: string): string {
+  const [dd, mm, aaaa] = s.split('/');
+  return `${aaaa}-${mm}-${dd}`;
+}
+
+function mensagemDeErro(e: unknown, fallback: string): string {
+  return e instanceof ApiError ? e.message : fallback;
+}
+
 export default function AddEventoScreen() {
   const router = useRouter();
-  const { petAtivo, adicionarEvento } = usePet();
-  const [tipo, setTipo] = useState<Evento['tipo']>('vacina');
-  const [titulo, setTitulo] = useState('');
+  const { petAtivo } = usePet();
+
+  const { data: tiposEvento = [], isLoading: carregandoTipos } = useTiposEvento(true);
+  const { data: veterinarios = [], isLoading: carregandoVets } = useVeterinarios(true);
+  const solicitarMutation = useSolicitarEvento();
+
+  const [tipoSelecionado, setTipoSelecionado] = useState<TipoEvento | null>(null);
+  const [vetSelecionado, setVetSelecionado] = useState<Veterinario | null>(null);
   const [data, setData] = useState('');
-  const [descricao, setDescricao] = useState('');
+  const [observacao, setObservacao] = useState('');
   const [erros, setErros] = useState<Record<string, string>>({});
-  const [salvando, setSalvando] = useState(false);
 
-  const sugestoes = petAtivo ? (SUGESTOES_TITULO[tipo]?.[petAtivo.especie] ?? SUGESTOES_TITULO[tipo]?.['outro'] ?? []) : [];
-
-  function validar() {
+  function validar(): boolean {
     const e: Record<string, string> = {};
-    if (!titulo.trim()) e.titulo = 'Título é obrigatório';
+    if (!tipoSelecionado) e.tipo = 'Selecione o tipo de evento';
+    if (!vetSelecionado) e.veterinario = 'Selecione um veterinário';
     if (data.length < 10) e.data = 'Data inválida (DD/MM/AAAA)';
     setErros(e);
     return Object.keys(e).length === 0;
   }
 
-  function parsarData(s: string): string {
-    const [dd, mm, aaaa] = s.split('/');
-    return new Date(`${aaaa}-${mm}-${dd}T12:00:00`).toISOString();
-  }
-
   async function handleSalvar() {
-    if (!validar()) return;
-    setSalvando(true);
+    if (!validar() || !petAtivo || !tipoSelecionado || !vetSelecionado) return;
     try {
-      const iso = parsarData(data);
-      await adicionarEvento({
-        id: Date.now().toString(),
-        petId: petAtivo?.id ?? '',
-        tipo, titulo: titulo.trim(),
-        descricao: descricao.trim() || undefined,
-        data: iso,
-        status: 'solicitado',
-        criadoEm: new Date().toISOString(),
+      await solicitarMutation.mutateAsync({
+        idPet: petAtivo.id,
+        idTipoEvento: tipoSelecionado.id,
+        idVeterinario: vetSelecionado.id,
+        data: paraIsoData(data),
+        observacao: observacao.trim() || undefined,
       });
       router.back();
-    } catch {
-      // silent
-    } finally { setSalvando(false); }
+    } catch (e) {
+      alertar('Não foi possível solicitar o evento', mensagemDeErro(e, 'Tente novamente em instantes.'));
+    }
   }
 
-  const tipoInfo = TIPOS_EVENTO.find(t => t.valor === tipo);
-  const previewData = data.length === 10 ? parsarData(data) : null;
+  const visualTipo = tipoSelecionado ? obterVisualTipoEvento(tipoSelecionado.nome) : null;
+  const carregandoCatalogo = carregandoTipos || carregandoVets;
 
   return (
     <>
@@ -84,93 +90,84 @@ export default function AddEventoScreen() {
         <ScrollView style={s.container} contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
 
           <View style={s.preview}>
-            <View style={[s.previewIcone, { backgroundColor: tipoInfo?.cor ?? C.g500 }]}>
+            <View style={[s.previewIcone, { backgroundColor: visualTipo?.cor ?? C.g500 }]}>
               <AppIcon
-                name={tipoInfo?.icon ?? 'document-text-outline'}
-                set={tipoInfo?.iconSet ?? 'Ionicons'}
+                name={visualTipo?.icon ?? 'document-text-outline'}
+                set={visualTipo?.iconSet ?? 'Ionicons'}
                 size={26}
                 color={C.white}
               />
             </View>
             <View style={s.previewInfo}>
-              <Text style={s.previewTitulo}>{titulo || 'Título do evento'}</Text>
+              <Text style={s.previewTitulo}>{tipoSelecionado?.nome ?? 'Tipo do evento'}</Text>
               <Text style={s.previewSub}>
-                {tipoInfo?.label} • {previewData ? new Date(previewData).toLocaleDateString('pt-BR') : 'Data'}
+                {vetSelecionado ? vetSelecionado.nome : 'Veterinário'} • {data || 'Data'}
               </Text>
-              {descricao ? <Text style={s.previewDesc}>{descricao}</Text> : null}
+              {petAtivo ? <Text style={s.previewSub}>Para: {petAtivo.nome}</Text> : null}
             </View>
           </View>
 
-          <View style={s.infoBanner}>
-            <AppIcon name="information-circle-outline" set="Ionicons" size={18} color={C.info} />
-            <Text style={s.infoBannerText}>
-              Sua solicitação será enviada ao veterinário, que vai confirmar (ou recusar) o atendimento.
-            </Text>
-          </View>
-
-          <View style={s.fg}>
-            <Text style={s.fl}>Tipo *</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={{ flexDirection: 'row', gap: 8, paddingBottom: 4 }}>
-                {TIPOS_EVENTO.map(t => (
-                  <Pressable
-                    key={t.valor}
-                    style={[s.tipoBtn, tipo === t.valor && { backgroundColor: t.cor, borderColor: t.cor }]}
-                    onPress={() => { setTipo(t.valor as Evento['tipo']); setTitulo(''); }}
-                  >
-                    <AppIcon
-                      name={t.icon}
-                      set={t.iconSet}
-                      size={20}
-                      color={tipo === t.valor ? C.white : t.cor}
-                    />
-                    <Text style={[s.tipoLabel, tipo === t.valor && { color: C.white }]}>{t.label}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            </ScrollView>
-          </View>
-
-          {petAtivo && (
-            <View style={s.fg}>
-              <Text style={s.fl}>Pet</Text>
-              <View style={s.fi}>
-                <Text style={s.fiText}>{petAtivo.nome}</Text>
-              </View>
+          {carregandoCatalogo ? (
+            <View style={s.loadingBox}>
+              <ActivityIndicator color={C.g600} />
             </View>
+          ) : (
+            <>
+              <View style={s.fg}>
+                <Text style={s.fl}>Tipo de evento *</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={{ flexDirection: 'row', gap: 8, paddingBottom: 4 }}>
+                    {tiposEvento.map(t => {
+                      const v = obterVisualTipoEvento(t.nome);
+                      const ativo = tipoSelecionado?.id === t.id;
+                      return (
+                        <Pressable
+                          key={t.id}
+                          style={[s.tipoBtn, ativo && { backgroundColor: v.cor, borderColor: v.cor }]}
+                          onPress={() => setTipoSelecionado(t)}
+                        >
+                          <AppIcon name={v.icon} set={v.iconSet} size={20} color={ativo ? C.white : v.cor} />
+                          <Text style={[s.tipoLabel, ativo && { color: C.white }]}>{t.nome}</Text>
+                          <Text style={[s.tipoPontos, ativo && { color: 'rgba(255,255,255,0.85)' }]}>{t.pontos} pts</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </ScrollView>
+                {erros.tipo ? <Text style={s.textoErro}>{erros.tipo}</Text> : null}
+              </View>
+
+              <View style={s.fg}>
+                <Text style={s.fl}>Veterinário *</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={{ flexDirection: 'row', gap: 8, paddingBottom: 4 }}>
+                    {veterinarios.map(v => {
+                      const ativo = vetSelecionado?.id === v.id;
+                      return (
+                        <Pressable
+                          key={v.id}
+                          style={[s.vetBtn, ativo && s.vetBtnAtivo]}
+                          onPress={() => setVetSelecionado(v)}
+                        >
+                          <AppIcon name="medical-bag" set="MaterialCommunityIcons" size={18} color={ativo ? C.white : C.g600} />
+                          <View>
+                            <Text style={[s.vetNome, ativo && { color: C.white }]}>{v.nome}</Text>
+                            {v.nomeClinica ? (
+                              <Text style={[s.vetClinica, ativo && { color: 'rgba(255,255,255,0.8)' }]}>{v.nomeClinica}</Text>
+                            ) : null}
+                          </View>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </ScrollView>
+                {erros.veterinario ? <Text style={s.textoErro}>{erros.veterinario}</Text> : null}
+              </View>
+            </>
           )}
 
           <View style={s.fg}>
-            <Text style={s.fl}>Título *</Text>
-            <TextInput
-              style={[s.fiInput, erros.titulo && s.fiInputErro]}
-              value={titulo}
-              onChangeText={setTitulo}
-              placeholder="Ex: V10 — dose anual"
-              placeholderTextColor={C.muted}
-            />
-            {erros.titulo ? <Text style={s.textoErro}>{erros.titulo}</Text> : null}
-          </View>
-
-          {sugestoes.length > 0 && (
-            <View style={s.fg}>
-              <Text style={s.fl}>Sugestões rápidas</Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                {sugestoes.map(sg => (
-                  <Pressable
-                    key={sg}
-                    style={[s.sugestaoBtn, { borderColor: tipoInfo?.cor ?? C.g500 }]}
-                    onPress={() => setTitulo(sg)}
-                  >
-                    <Text style={[s.sugestaoText, { color: tipoInfo?.cor ?? C.g500 }]}>{sg}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            </View>
-          )}
-
-          <View style={s.fg}>
-            <Text style={s.fl}>Data Desejada *</Text>
+            <Text style={s.fl}>Data *</Text>
             <TextInput
               style={[s.fiInput, erros.data && s.fiInputErro]}
               value={data}
@@ -184,12 +181,12 @@ export default function AddEventoScreen() {
           </View>
 
           <View style={s.fg}>
-            <Text style={s.fl}>Descrição</Text>
+            <Text style={s.fl}>Observação</Text>
             <TextInput
               style={[s.fiInput, s.fiTextarea]}
-              value={descricao}
-              onChangeText={setDescricao}
-              placeholder="Sintomas, observações para o veterinário..."
+              value={observacao}
+              onChangeText={setObservacao}
+              placeholder="Sintomas, contexto, pedidos específicos..."
               placeholderTextColor={C.muted}
               multiline
               numberOfLines={3}
@@ -201,21 +198,15 @@ export default function AddEventoScreen() {
               <Text style={s.btnCancelarText}>Cancelar</Text>
             </Pressable>
             <Pressable
-              style={[s.btnSalvar, { backgroundColor: tipoInfo?.cor ?? C.g600 }, salvando && { opacity: 0.6 }]}
+              style={[s.btnSalvar, { backgroundColor: visualTipo?.cor ?? C.g600 }, solicitarMutation.isPending && { opacity: 0.6 }]}
               onPress={handleSalvar}
-              disabled={salvando}
+              disabled={solicitarMutation.isPending}
             >
-              {salvando ? (
-                <Text style={s.btnSalvarText}>Enviando solicitação...</Text>
+              {solicitarMutation.isPending ? (
+                <Text style={s.btnSalvarText}>Solicitando...</Text>
               ) : (
                 <>
-                  <AppIcon
-                    name={tipoInfo?.icon ?? 'document-text-outline'}
-                    set={tipoInfo?.iconSet ?? 'Ionicons'}
-                    size={16}
-                    color={C.white}
-                    style={{ marginRight: 6 }}
-                  />
+                  <AppIcon name={visualTipo?.icon ?? 'document-text-outline'} set={visualTipo?.iconSet ?? 'Ionicons'} size={16} color={C.white} style={{ marginRight: 6 }} />
                   <Text style={s.btnSalvarText}>Solicitar Evento</Text>
                 </>
               )}
@@ -239,7 +230,7 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-    marginBottom: 14,
+    marginBottom: 22,
     borderWidth: 1,
     borderColor: C.border,
   },
@@ -247,36 +238,14 @@ const s = StyleSheet.create({
   previewInfo: { flex: 1 },
   previewTitulo: { fontSize: 16, fontWeight: '700', color: C.text },
   previewSub: { fontSize: 12, color: C.muted, marginTop: 3 },
-  previewDesc: { fontSize: 12, color: C.muted, marginTop: 4, fontStyle: 'italic' },
 
-  infoBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: '#eff6ff',
-    borderWidth: 1,
-    borderColor: '#bfdbfe',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 22,
-  },
-  infoBannerText: { flex: 1, fontSize: 12, color: '#1e40af' },
+  loadingBox: { paddingVertical: 32, alignItems: 'center' },
 
   fg: { marginBottom: 18 },
   fl: {
     fontSize: 11, fontWeight: '700', letterSpacing: 0.6,
     textTransform: 'uppercase', color: C.muted, marginBottom: 7,
   },
-
-  fi: {
-    backgroundColor: C.white,
-    borderWidth: 1.5,
-    borderColor: C.border,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-  },
-  fiText: { fontSize: 14, color: C.text },
 
   fiInput: {
     width: '100%',
@@ -301,18 +270,26 @@ const s = StyleSheet.create({
     backgroundColor: C.white,
     borderWidth: 1.5,
     borderColor: C.border,
-    minWidth: 80,
+    minWidth: 110,
   },
-  tipoLabel: { fontSize: 11, fontWeight: '600', color: C.muted, marginTop: 4 },
+  tipoLabel: { fontSize: 11, fontWeight: '600', color: C.muted, marginTop: 4, textAlign: 'center' },
+  tipoPontos: { fontSize: 9, fontWeight: '700', color: C.muted, marginTop: 2 },
 
-  sugestaoBtn: {
+  vetBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1.5,
+    paddingVertical: 10,
+    borderRadius: 10,
     backgroundColor: C.white,
+    borderWidth: 1.5,
+    borderColor: C.border,
+    minWidth: 160,
   },
-  sugestaoText: { fontSize: 12, fontWeight: '600' },
+  vetBtnAtivo: { backgroundColor: C.g600, borderColor: C.g600 },
+  vetNome: { fontSize: 12, fontWeight: '700', color: C.text },
+  vetClinica: { fontSize: 10, color: C.muted, marginTop: 1 },
 
   modalFoot: {
     flexDirection: 'row',
