@@ -45,13 +45,17 @@ export default function PerfilScreen() {
   function handleResetar() {
     confirmar(
       'Resetar configurações?',
-      'Isso redefine as preferências locais de notificação do aplicativo.',
+      'Isso redefine as preferências locais de notificação do aplicativo. Sua conta e seus pets continuam salvos normalmente.',
       [
         { texto: 'Cancelar', estilo: 'cancel' },
         {
           texto: 'Resetar',
           estilo: 'destructive',
-          aoConfirmar: () => resetarPreferencias().then(() => router.replace('/login')),
+          aoConfirmar: () => {
+            resetarPreferencias().catch(() =>
+              alertar('Não foi possível resetar', 'Tente novamente em instantes.')
+            );
+          },
         },
       ]
     );
@@ -234,7 +238,7 @@ export default function PerfilScreen() {
       {/* Resetar */}
       <Pressable style={s.btnResetar} onPress={handleResetar}>
         <Ionicons name="trash-outline" size={16} color="#fff" />
-        <Text style={s.btnResetarText}>Resetar todos os dados</Text>
+        <Text style={s.btnResetarText}>Resetar preferências</Text>
       </Pressable>
 
     </ScrollView>

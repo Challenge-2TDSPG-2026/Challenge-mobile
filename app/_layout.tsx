@@ -19,11 +19,10 @@ function RootNavigator() {
   const { onboardingConcluido, carregando: carregandoPet } = usePet();
   const router = useRouter();
   const segments = useSegments();
-
   const ehTutor = sessao?.perfil === 'TUTOR';
   const ehVeterinario = sessao?.perfil === 'VETERINARIO';
-
   const carregando = carregandoAuth || (ehTutor && carregandoPet);
+  const ROTAS_FORA_DO_GRUPO = ['add-evento', 'add-pet', 'paciente'];
 
   useEffect(() => {
     if (carregando) return;
@@ -31,11 +30,14 @@ function RootNavigator() {
     const inLogin = segments[0] === 'login';
     const inTutor = segments[0] === '(tutor)';
     const inVet = segments[0] === '(vet)';
+    const inRotaLivre = ROTAS_FORA_DO_GRUPO.includes(segments[0] as string);
 
     if (!autenticado) {
       if (!inLogin) router.replace('/login');
       return;
     }
+
+    if (inRotaLivre) return;
 
     if (ehVeterinario) {
       if (!inVet) router.replace('/(vet)');
