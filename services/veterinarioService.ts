@@ -1,113 +1,106 @@
-import {
-  salvarVeterinarios,
-  carregarVeterinarios,
-  salvarVeterinarioAtivoId,
-  carregarVeterinarioAtivoId,
-  salvarDisponibilidade,
-  carregarDisponibilidade,
-  salvarBloqueios,
-  carregarBloqueios,
-} from '../storage/petStorage';
+import { api } from './api/httpClient';
 import type { Veterinario, FaixaDisponibilidade, BloqueioAgenda } from '../types';
 
+interface VeterinarioResponseApi {
+  idVeterinario: number;
+  nmVeterinario: string;
+  nrCrmv: string;
+  idClinica: number | null;
+  nmClinica: string | null;
+}
+
+interface DisponibilidadeResponseApi {
+  idDisponibilidade: number;
+  nrDiaSemana: number;
+  hrInicio: string;
+  hrFim: string;
+}
+
+interface BloqueioResponseApi {
+  idBloqueio: number;
+  dtInicio: string;
+  dtFim: string;
+  motivo: string | null;
+}
+
+function paraVeterinarioApp(dto: VeterinarioResponseApi): Veterinario {
+  return {
+    id: String(dto.idVeterinario),
+    nome: dto.nmVeterinario,
+    crmv: dto.nrCrmv,
+    idClinica: dto.idClinica != null ? String(dto.idClinica) : null,
+    nomeClinica: dto.nmClinica,
+  };
+}
+
+function paraFaixaApp(dto: DisponibilidadeResponseApi): FaixaDisponibilidade {
+  return {
+    id: String(dto.idDisponibilidade),
+    diaSemana: dto.nrDiaSemana,
+    horaInicio: dto.hrInicio,
+    horaFim: dto.hrFim,
+  };
+}
+
+function paraBloqueioApp(dto: BloqueioResponseApi): BloqueioAgenda {
+  return {
+    id: String(dto.idBloqueio),
+    dataInicio: dto.dtInicio,
+    dataFim: dto.dtFim,
+    motivo: dto.motivo ?? undefined,
+  };
+}
+
 export const veterinarioService = {
- 
   async listarVeterinarios(): Promise<Veterinario[]> {
-    return carregarVeterinarios();
+    const dtos = await api.get<VeterinarioResponseApi[]>('/veterinarios');
+    return dtos.map(paraVeterinarioApp);
   },
 
-  async buscarPorId(id: string, listaAtual: Veterinario[]): Promise<Veterinario | null> {
-    return listaAtual.find(v => v.id === id) ?? null;
+  async buscarPorId(id: string): Promise<Veterinario> {
+    const dto = await api.get<VeterinarioResponseApi>(`/veterinarios/${id}`);
+    return paraVeterinarioApp(dto);
   },
 
-  async adicionarVeterinario(veterinario: Veterinario, listaAtual: Veterinario[]): Promise<Veterinario[]> {
-    const novos = [...listaAtual, veterinario];
-    await salvarVeterinarios(novos);
-    return novos;
-  },
-
-  async atualizarVeterinario(veterinario: Veterinario, listaAtual: Veterinario[]): Promise<Veterinario[]> {
-    const novos = listaAtual.map(v => (v.id === veterinario.id ? veterinario : v));
-    await salvarVeterinarios(novos);
-    return novos;
-  },
-
-  async getVeterinarioAtivoId(): Promise<string | null> {
-    return carregarVeterinarioAtivoId();
-  },
-
-  async setVeterinarioAtivoId(id: string): Promise<void> {
-    await salvarVeterinarioAtivoId(id);
-  },
-
-  async listarDisponibilidade(): Promise<FaixaDisponibilidade[]> {
-    return carregarDisponibilidade();
-  },
-
-  async listarDisponibilidadeDoVeterinario(veterinarioId: string): Promise<FaixaDisponibilidade[]> {
-    const todas = await carregarDisponibilidade();
-    return todas.filter(f => f.veterinarioId === veterinarioId);
+  async listarDisponibilidade(idVeterinario: string): Promise<FaixaDisponibilidade[]> {
+    const dtos = await api.get<DisponibilidadeResponseApi[]>(`/veterinarios/${idVeterinario}/disponibilidade`);
+    return dtos.map(paraFaixaApp);
   },
 
   async adicionarFaixaDisponibilidade(
-    faixa: FaixaDisponibilidade,
-    listaAtual: FaixaDisponibilidade[],
-  ): Promise<FaixaDisponibilidade[]> {
-    const novas = [...listaAtual, faixa];
-    await salvarDisponibilidade(novas);
-    return novas;
-  },
-
-  async removerFaixaDisponibilidade(
-    id: string,
-    listaAtual: FaixaDisponibilidade[],
-  ): Promise<FaixaDisponibilidade[]> {
-    const novas = listaAtual.filter(f => f.id !== id);
-    await salvarDisponibilidade(novas);
-    return novas;
-  },
-
-  async listarBloqueios(): Promise<BloqueioAgenda[]> {
-    return carregarBloqueios();
-  },
-
-  async listarBloqueiosDoVeterinario(veterinarioId: string): Promise<BloqueioAgenda[]> {
-    const todos = await carregarBloqueios();
-    return todos.filter(b => b.veterinarioId === veterinarioId);
-  },
-
-  async adicionarBloqueio(bloqueio: BloqueioAgenda, listaAtual: BloqueioAgenda[]): Promise<BloqueioAgenda[]> {
-    const novos = [...listaAtual, bloqueio];
-    await salvarBloqueios(novos);
-    return novos;
-  },
-
-  async removerBloqueio(id: string, listaAtual: BloqueioAgenda[]): Promise<BloqueioAgenda[]> {
-    const novos = listaAtual.filter(b => b.id !== id);
-    await salvarBloqueios(novos);
-    return novos;
-  },
-
-  horarioEstaDisponivel(
-    dataISO: string,
-    faixas: FaixaDisponibilidade[],
-    bloqueios: BloqueioAgenda[],
-  ): boolean {
-    const data = new Date(dataISO);
-    const diaSemana = data.getDay() as FaixaDisponibilidade['diaSemana'];
-    const minutosNoDia = data.getHours() * 60 + data.getMinutes();
-    const chaveData = dataISO.slice(0, 10); // YYYY-MM-DD
-
-    const diaBloqueado = bloqueios.some(b => b.data.slice(0, 10) === chaveData);
-    if (diaBloqueado) return false;
-
-    return faixas.some(f => {
-      if (f.diaSemana !== diaSemana) return false;
-      const [horaIni, minIni] = f.horaInicio.split(':').map(Number);
-      const [horaFim, minFim] = f.horaFim.split(':').map(Number);
-      const inicio = horaIni * 60 + minIni;
-      const fim = horaFim * 60 + minFim;
-      return minutosNoDia >= inicio && minutosNoDia < fim;
+    idVeterinario: string,
+    faixa: { diaSemana: number; horaInicio: string; horaFim: string }
+  ): Promise<FaixaDisponibilidade> {
+    const dto = await api.post<DisponibilidadeResponseApi>(`/veterinarios/${idVeterinario}/disponibilidade`, {
+      nrDiaSemana: faixa.diaSemana,
+      hrInicio: faixa.horaInicio,
+      hrFim: faixa.horaFim,
     });
+    return paraFaixaApp(dto);
+  },
+
+  async removerFaixaDisponibilidade(idVeterinario: string, idFaixa: string): Promise<void> {
+    await api.delete(`/veterinarios/${idVeterinario}/disponibilidade/${idFaixa}`);
+  },
+
+  async listarBloqueios(idVeterinario: string): Promise<BloqueioAgenda[]> {
+    const dtos = await api.get<BloqueioResponseApi[]>(`/veterinarios/${idVeterinario}/bloqueios`);
+    return dtos.map(paraBloqueioApp);
+  },
+
+  async adicionarBloqueio(
+    idVeterinario: string,
+    bloqueio: { dataInicio: string; dataFim: string; motivo?: string }
+  ): Promise<BloqueioAgenda> {
+    const dto = await api.post<BloqueioResponseApi>(`/veterinarios/${idVeterinario}/bloqueios`, {
+      dtInicio: bloqueio.dataInicio,
+      dtFim: bloqueio.dataFim,
+      motivo: bloqueio.motivo ?? null,
+    });
+    return paraBloqueioApp(dto);
+  },
+
+  async removerBloqueio(idVeterinario: string, idBloqueio: string): Promise<void> {
+    await api.delete(`/veterinarios/${idVeterinario}/bloqueios/${idBloqueio}`);
   },
 };
