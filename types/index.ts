@@ -8,14 +8,13 @@ export interface Pet {
 }
 
 export type StatusEvento = 'SOLICITADO' | 'CONFIRMADO' | 'CONCLUIDO' | 'CANCELADO';
-
+export type StatusEventoExibicao = StatusEvento | 'ATRASADO';
 export interface TipoEvento {
   id: string;
   nome: string;
   categoria: 'PREVENTIVO' | 'TERAPEUTICO' | 'BEM_ESTAR' | 'EMERGENCIA' | null;
   pontos: number;
 }
-
 export interface Veterinario {
   id: string;
   nome: string;
@@ -33,7 +32,7 @@ export interface Evento {
   categoriaTipoEvento: TipoEvento['categoria'];
   idVeterinario: string;
   nomeVeterinario: string;
-  data: string; // ISO (yyyy-MM-dd)
+  data: string; 
   observacao?: string;
   motivoCancelamento?: string;
   custo: number;
@@ -55,4 +54,17 @@ export interface Resgate {
   nomeRecompensa: string;
   custoPontos: number;
   nomeVeterinarioValidador?: string;
+}
+
+export interface FaixaDisponibilidade {
+  id: string;
+  diaSemana: number; 
+  horaInicio: string; 
+  horaFim: string;
+}
+export interface BloqueioAgenda {
+  id: string;
+  dataInicio: string; 
+  dataFim: string;
+  motivo?: string;
 }
