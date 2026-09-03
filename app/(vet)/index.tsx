@@ -1,111 +1,124 @@
-import React, { useMemo } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
+import React from 'react';
+import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useVet } from '../../context/VetContext';
-import { TIPOS_EVENTO, STATUS_EVENTO } from '../../constants';
+import { useAuth } from '../../context/AuthContext';
+import { obterVisualTipoEvento } from '../../constants';
 import { AppIcon } from '../../components/AppIcon';
+import { STATUS_EXIBICAO_BADGE, formatarDataHoraEvento, statusExibicao } from '../../utils/eventoStatus';
 
 const C = {
   g900: '#0a2218', g800: '#0e3326', g700: '#155c3f', g600: '#1a7a52',
-  g500: '#22a06b', g400: '#3db87e', g200: '#a8e6c7', g100: '#d4f2e4', g50: '#edfaf3',
+  g500: '#22a06b', g200: '#a8e6c7', g100: '#d4f2e4', g50: '#edfaf3',
   cream: '#fafaf8', w50: '#f9f7f4', w100: '#f0ece5',
   text: '#1a1512', muted: '#7a6a5e', border: '#e8e2da', white: '#fff',
   danger: '#dc3545', warn: '#e67e22', info: '#2563eb',
 };
 
-function formatarHora(iso: string): string {
-  return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-}
-
 export default function VetDashboardScreen() {
   const router = useRouter();
-  const { veterinarioAtivo, veterinarioAtivoId, pets, eventosDeHoje, eventosSolicitados, confirmarEvento } = useVet();
+  const { sessao } = useAuth();
+  const { veterinarioAtivo, eventosSolicitados, eventosConfirmados, eventosDeHoje, carregando } = useVet();
 
-  const confirmadasHoje = useMemo(
-    () => eventosDeHoje.filter(e => e.status === 'confirmado' && e.veterinarioId === veterinarioAtivoId).length,
-    [eventosDeHoje, veterinarioAtivoId]
-  );
-  const concluidasHoje = useMemo(
-    () => eventosDeHoje.filter(e => e.status === 'concluido').length,
-    [eventosDeHoje]
-  );
-
-  function nomePet(petId: string): string {
-    return pets.find(p => p.id === petId)?.nome ?? 'Pet não identificado';
+  if (carregando) {
+    return (
+      <View style={s.loadingContainer}>
+        <ActivityIndicator color={C.g600} size="large" />
+      </View>
+    );
   }
-
-  if (!veterinarioAtivo) return null;
 
   return (
     <ScrollView style={s.container} contentContainerStyle={s.content}>
 
-      {/* Welcome banner */}
       <View style={s.welcome}>
-        <AppIcon name="medical-bag" set="MaterialCommunityIcons" size={34} color={C.white} />
+        <View style={s.welcomeIconWrap}>
+          <AppIcon name="medical-bag" set="MaterialCommunityIcons" size={30} color={C.white} />
+        </View>
         <View style={s.welcomeInfo}>
-          <Text style={s.welcomeNome}>Olá, {veterinarioAtivo.nome}</Text>
-          <Text style={s.welcomeSub}>{veterinarioAtivo.especialidade} • {veterinarioAtivo.clinica}</Text>
+          <Text style={s.welcomeNome}>Olá, {veterinarioAtivo?.nome ?? sessao?.nome}</Text>
+          <Text style={s.welcomeSub}>
+            CRMV {veterinarioAtivo?.crmv ?? '—'}{veterinarioAtivo?.nomeClinica ? ` • ${veterinarioAtivo.nomeClinica}` : ''}
+          </Text>
         </View>
       </View>
 
-      {/* Stats */}
       <View style={s.statsRow}>
-        <StatCard valor={eventosSolicitados.length} label="Na fila" accentColor={C.warn} />
-        <StatCard valor={confirmadasHoje} label="Confirmadas hoje" accentColor={C.info} />
-        <StatCard valor={concluidasHoje} label="Concluídas hoje" accentColor={C.g500} />
+        <StatCard valor={eventosSolicitados.length} label="Aguardando" accentColor={C.warn} />
+        <StatCard valor={eventosConfirmados.length} label="Confirmados" accentColor={C.info} />
+        <StatCard valor={eventosDeHoje.length} label="Hoje" accentColor={C.g500} />
       </View>
 
-      {/* Atalhos rápidos */}
-      <View style={s.atalhosRow}>
-        <Pressable style={s.atalho} onPress={() => router.push('/(vet)/consultas')}>
-          <AppIcon name="checkmark-done-circle-outline" set="Ionicons" size={20} color={C.g600} />
-          <Text style={s.atalhoText}>Confirmar consultas</Text>
-        </Pressable>
-        <Pressable style={s.atalho} onPress={() => router.push('/(vet)/pacientes')}>
-          <AppIcon name="folder-outline" set="Ionicons" size={20} color={C.g600} />
-          <Text style={s.atalhoText}>Ver prontuários</Text>
-        </Pressable>
-      </View>
-
-      {/* Atendimentos de hoje */}
       <View style={s.card}>
         <View style={s.cardHead}>
-          <Text style={s.cardTitle}>Atendimentos de Hoje</Text>
+          <Text style={s.cardTitle}>Solicitações aguardando confirmação</Text>
           <Pressable onPress={() => router.push('/(vet)/consultas')}>
-            <Text style={s.linkVer}>Ver todos</Text>
+            <Text style={s.linkVer}>Ver todas</Text>
           </Pressable>
+        </View>
+
+        {eventosSolicitados.length === 0 ? (
+          <View style={s.empty}>
+            <AppIcon name="checkmark-done-outline" set="Ionicons" size={32} color={C.muted} style={{ marginBottom: 8 }} />
+            <Text style={s.emptyTitle}>Nenhuma solicitação pendente</Text>
+          </View>
+        ) : (
+          eventosSolicitados.slice(0, 5).map((e, idx, arr) => {
+            const visual = obterVisualTipoEvento(e.nomeTipoEvento);
+            const sb = STATUS_EXIBICAO_BADGE[statusExibicao(e)];
+            return (
+              <Pressable
+                key={e.id}
+                style={[s.eventoRow, idx < arr.length - 1 && s.eventoRowBorder]}
+                onPress={() => router.push(`/paciente/${e.petId}`)}
+              >
+                <View style={[s.eventoIcone, { backgroundColor: visual.cor }]}>
+                  <AppIcon name={visual.icon} set={visual.iconSet} size={16} color={C.white} />
+                </View>
+                <View style={s.eventoInfo}>
+                  <Text style={s.eventoTitulo}>{e.nomeTipoEvento}</Text>
+                  <Text style={s.eventoData}>{formatarDataHoraEvento(e.data)}</Text>
+                </View>
+                <View style={[s.badge, { backgroundColor: sb.bg }]}>
+                  <Text style={[s.badgeText, { color: sb.color }]}>{sb.label}</Text>
+                </View>
+              </Pressable>
+            );
+          })
+        )}
+      </View>
+
+      <View style={s.card}>
+        <View style={s.cardHead}>
+          <Text style={s.cardTitle}>Atendimentos de hoje</Text>
         </View>
 
         {eventosDeHoje.length === 0 ? (
           <View style={s.empty}>
-            <AppIcon name="calendar-outline" set="Ionicons" size={36} color={C.muted} style={s.emptyIcon} />
-            <Text style={s.emptyTitle}>Nenhum atendimento hoje</Text>
-            <Text style={s.emptySub}>A agenda do dia está livre</Text>
+            <AppIcon name="calendar-outline" set="Ionicons" size={32} color={C.muted} style={{ marginBottom: 8 }} />
+            <Text style={s.emptyTitle}>Nada agendado para hoje</Text>
           </View>
         ) : (
-          eventosDeHoje.map((e, idx) => {
-            const t = TIPOS_EVENTO.find(x => x.valor === e.tipo);
-            const sb = STATUS_EVENTO[e.status];
-            const isLast = idx === eventosDeHoje.length - 1;
+          eventosDeHoje.map((e, idx, arr) => {
+            const visual = obterVisualTipoEvento(e.nomeTipoEvento);
+            const sb = STATUS_EXIBICAO_BADGE[statusExibicao(e)];
             return (
-              <View key={e.id} style={[s.eventoRow, !isLast && s.eventoRowBorder]}>
-                <View style={[s.eventoIcone, { backgroundColor: t?.cor ?? C.g500 }]}>
-                  <AppIcon name={t?.icon ?? 'document-text-outline'} set={t?.iconSet ?? 'Ionicons'} size={16} color={C.white} />
+              <Pressable
+                key={e.id}
+                style={[s.eventoRow, idx < arr.length - 1 && s.eventoRowBorder]}
+                onPress={() => router.push(`/paciente/${e.petId}`)}
+              >
+                <View style={[s.eventoIcone, { backgroundColor: visual.cor }]}>
+                  <AppIcon name={visual.icon} set={visual.iconSet} size={16} color={C.white} />
                 </View>
                 <View style={s.eventoInfo}>
-                  <Text style={s.eventoTitulo}>{e.titulo}</Text>
-                  <Text style={s.eventoMeta}>{formatarHora(e.data)} • {nomePet(e.petId)}</Text>
+                  <Text style={s.eventoTitulo}>{e.nomeTipoEvento}</Text>
+                  <Text style={s.eventoData}>{formatarDataHoraEvento(e.data)}</Text>
                 </View>
-                {e.status === 'solicitado' ? (
-                  <Pressable style={s.btnConfirmar} onPress={() => confirmarEvento(e.id)}>
-                    <Text style={s.btnConfirmarText}>Confirmar</Text>
-                  </Pressable>
-                ) : (
-                  <View style={[s.badge, { backgroundColor: sb.bg }]}>
-                    <Text style={[s.badgeText, { color: sb.color }]}>{sb.label}</Text>
-                  </View>
-                )}
-              </View>
+                <View style={[s.badge, { backgroundColor: sb.bg }]}>
+                  <Text style={[s.badgeText, { color: sb.color }]}>{sb.label}</Text>
+                </View>
+              </Pressable>
             );
           })
         )}
@@ -127,6 +140,7 @@ function StatCard({ valor, label, accentColor }: { valor: number; label: string;
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.cream },
   content: { padding: 20, paddingBottom: 32 },
+  loadingContainer: { flex: 1, backgroundColor: C.cream, justifyContent: 'center', alignItems: 'center' },
 
   welcome: {
     backgroundColor: C.g800,
@@ -137,47 +151,27 @@ const s = StyleSheet.create({
     marginBottom: 20,
     gap: 14,
   },
+  welcomeIconWrap: {
+    width: 52, height: 52, borderRadius: 26,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    justifyContent: 'center', alignItems: 'center',
+  },
   welcomeInfo: { flex: 1 },
-  welcomeNome: { fontSize: 18, fontWeight: '700', color: C.white, letterSpacing: -0.3 },
+  welcomeNome: { fontSize: 17, fontWeight: '700', color: C.white, letterSpacing: -0.3 },
   welcomeSub: { fontSize: 12, color: 'rgba(168,230,199,0.85)', marginTop: 3 },
 
-  statsRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
+  statsRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
   statCard: {
-    flex: 1,
-    backgroundColor: C.white,
-    borderWidth: 1,
-    borderColor: C.border,
-    borderRadius: 12,
-    padding: 14,
-    borderBottomWidth: 3,
+    flex: 1, backgroundColor: C.white, borderWidth: 1, borderColor: C.border,
+    borderRadius: 12, padding: 14, borderBottomWidth: 3,
   },
   statLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 0.4, textTransform: 'uppercase', color: C.muted, marginBottom: 6 },
   statVal: { fontSize: 26, fontWeight: '700', lineHeight: 28 },
 
-  atalhosRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
-  atalho: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: C.white,
-    borderWidth: 1,
-    borderColor: C.border,
-    borderRadius: 12,
-    padding: 14,
-  },
-  atalhoText: { fontSize: 12, fontWeight: '700', color: C.text, flexShrink: 1 },
-
   card: { backgroundColor: C.white, borderWidth: 1, borderColor: C.border, borderRadius: 16, marginBottom: 16, overflow: 'hidden' },
   cardHead: {
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: C.border,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: C.w50,
+    paddingHorizontal: 18, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: C.border,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: C.w50,
   },
   cardTitle: { fontSize: 14, fontWeight: '700', color: C.text },
   linkVer: { fontSize: 13, color: C.g600, fontWeight: '600' },
@@ -187,20 +181,10 @@ const s = StyleSheet.create({
   eventoIcone: { width: 38, height: 38, borderRadius: 19, justifyContent: 'center', alignItems: 'center' },
   eventoInfo: { flex: 1 },
   eventoTitulo: { fontSize: 13, fontWeight: '600', color: C.text },
-  eventoMeta: { fontSize: 12, color: C.muted, marginTop: 2 },
+  eventoData: { fontSize: 12, color: C.muted, marginTop: 2 },
   badge: { paddingHorizontal: 9, paddingVertical: 3, borderRadius: 20 },
   badgeText: { fontSize: 11, fontWeight: '700' },
 
-  btnConfirmar: {
-    backgroundColor: C.g600,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 8,
-  },
-  btnConfirmarText: { color: C.white, fontSize: 11, fontWeight: '700' },
-
-  empty: { alignItems: 'center', paddingVertical: 36 },
-  emptyIcon: { marginBottom: 10 },
-  emptyTitle: { fontSize: 14, fontWeight: '700', color: C.text, marginBottom: 4 },
-  emptySub: { fontSize: 12, color: C.muted },
+  empty: { alignItems: 'center', paddingVertical: 28 },
+  emptyTitle: { fontSize: 13, fontWeight: '700', color: C.text },
 });
