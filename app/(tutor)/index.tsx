@@ -1,12 +1,12 @@
 import React, { useMemo } from 'react';
-import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { usePet } from '../../context/PetContext';
-import { ESPECIES, TIPOS_EVENTO, STATUS_EVENTO } from '../../constants';
+import { ESPECIES, obterVisualTipoEvento } from '../../constants';
 import { AppIcon } from '../../components/AppIcon';
 import { PetSwitcher } from '../../components/PetSwitcher';
-import type { Evento, StatusEventoExibicao } from '../../types';
+import { statusExibicao, STATUS_EXIBICAO_BADGE, formatarDataEvento } from '../../utils/eventoStatus';
 
 const C = {
   g900: '#0a2218', g800: '#0e3326', g700: '#155c3f', g600: '#1a7a52',
@@ -26,36 +26,42 @@ function calcularIdade(d: string): string {
   return m > 0 ? `${a} ano${a > 1 ? 's' : ''} e ${m} mês${m > 1 ? 'es' : ''}` : `${a} ano${a > 1 ? 's' : ''}`;
 }
 
-function formatarData(iso: string): string {
-  return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
-}
-
-/** Mesma regra de exibição usada no PetContext, agenda.tsx e historico.tsx. */
-function statusExibicao(e: Evento): StatusEventoExibicao {
-  if (e.status === 'concluido' || e.status === 'cancelado') return e.status;
-  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
-  const d = new Date(e.data); d.setHours(0, 0, 0, 0);
-  return d < hoje ? 'atrasado' : e.status;
-}
-
 export default function DashboardScreen() {
   const router = useRouter();
-  const { petAtivo, eventos } = usePet();
+  const { pets, petAtivo, eventos, carregandoEventos, carregando } = usePet();
 
   const eventosComStatus = useMemo(
     () => eventos.map(e => ({ ...e, statusExibicao: statusExibicao(e) })),
     [eventos]
   );
-
-  // "Pendentes" = aguardando resolução (solicitado ou confirmado, ainda não atrasado)
-  const pendentes = eventosComStatus.filter(e => e.statusExibicao === 'solicitado' || e.statusExibicao === 'confirmado');
-  const concluidos = eventosComStatus.filter(e => e.statusExibicao === 'concluido');
-  const atrasados = eventosComStatus.filter(e => e.statusExibicao === 'atrasado');
-
+  const pendentes = eventosComStatus.filter(e => e.statusExibicao === 'SOLICITADO' || e.statusExibicao === 'CONFIRMADO');
+  const concluidos = eventosComStatus.filter(e => e.statusExibicao === 'CONCLUIDO');
+  const atrasados = eventosComStatus.filter(e => e.statusExibicao === 'ATRASADO');
   const proximos = [...pendentes, ...atrasados]
     .sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime())
     .slice(0, 5);
   const especieInfo = ESPECIES.find(e => e.valor === petAtivo?.especie);
+
+  if (carregando) {
+    return (
+      <View style={s.loadingContainer}>
+        <ActivityIndicator color={C.g600} size="large" />
+      </View>
+    );
+  }
+
+  if (pets.length === 0) {
+    return (
+      <View style={s.semPetContainer}>
+        <AppIcon name="paw" set="MaterialCommunityIcons" size={48} color={C.muted} style={{ marginBottom: 16 }} />
+        <Text style={s.semPetTitulo}>Nenhum pet cadastrado ainda</Text>
+        <Text style={s.semPetSub}>
+          O cadastro do seu pet é feito pela nossa administração. Assim que
+          estiver pronto, ele vai aparecer aqui automaticamente.
+        </Text>
+      </View>
+    );
+  }
 
   if (!petAtivo) return null;
 
@@ -124,25 +130,29 @@ export default function DashboardScreen() {
           </Pressable>
         </View>
 
-        {proximos.length === 0 ? (
+        {carregandoEventos ? (
+          <View style={s.empty}>
+            <ActivityIndicator color={C.g600} />
+          </View>
+        ) : proximos.length === 0 ? (
           <View style={s.empty}>
             <AppIcon name="calendar-outline" set="Ionicons" size={36} color={C.muted} style={s.emptyIcon} />
             <Text style={s.emptyTitle}>Nenhum evento pendente</Text>
-            <Text style={s.emptySub}>Solicite eventos de saúde para o seu pet</Text>
+            <Text style={s.emptySub}>Adicione eventos de saúde para o seu pet</Text>
           </View>
         ) : (
           proximos.map((e, idx) => {
-            const t = TIPOS_EVENTO.find(x => x.valor === e.tipo);
-            const sb = STATUS_EVENTO[e.statusExibicao];
+            const visual = obterVisualTipoEvento(e.nomeTipoEvento);
+            const sb = STATUS_EXIBICAO_BADGE[e.statusExibicao];
             const isLast = idx === proximos.length - 1;
             return (
               <View key={e.id} style={[s.eventoRow, !isLast && s.eventoRowBorder]}>
-                <View style={[s.eventoIcone, { backgroundColor: t?.cor ?? C.g500 }]}>
-                  <AppIcon name={t?.icon ?? 'document-text-outline'} set={t?.iconSet ?? 'Ionicons'} size={16} color={C.white} />
+                <View style={[s.eventoIcone, { backgroundColor: visual.cor }]}>
+                  <AppIcon name={visual.icon} set={visual.iconSet} size={16} color={C.white} />
                 </View>
                 <View style={s.eventoInfo}>
-                  <Text style={s.eventoTitulo}>{e.titulo}</Text>
-                  <Text style={s.eventoData}>{formatarData(e.data)}</Text>
+                  <Text style={s.eventoTitulo}>{e.nomeTipoEvento}</Text>
+                  <Text style={s.eventoData}>{formatarDataEvento(e.data)}</Text>
                 </View>
                 <View style={[s.badge, { backgroundColor: sb.bg }]}>
                   <Text style={[s.badgeText, { color: sb.color }]}>{sb.label}</Text>
@@ -156,7 +166,7 @@ export default function DashboardScreen() {
       {/* CTA button */}
       <Pressable style={s.btnAdd} onPress={() => router.push('/add-evento')}>
         <Ionicons name="add-circle-outline" size={18} color="#fff" />
-        <Text style={s.btnAddText}>Solicitar evento de saúde</Text>
+        <Text style={s.btnAddText}>Adicionar evento de saúde</Text>
       </Pressable>
 
     </ScrollView>
@@ -175,6 +185,12 @@ function StatCard({ valor, label, accentColor }: { valor: number; label: string;
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.cream },
   content: { padding: 20, paddingBottom: 32 },
+
+  loadingContainer: { flex: 1, backgroundColor: C.cream, justifyContent: 'center', alignItems: 'center' },
+
+  semPetContainer: { flex: 1, backgroundColor: C.cream, justifyContent: 'center', alignItems: 'center', padding: 32 },
+  semPetTitulo: { fontSize: 16, fontWeight: '700', color: C.text, marginBottom: 8, textAlign: 'center' },
+  semPetSub: { fontSize: 13, color: C.muted, textAlign: 'center', lineHeight: 19 },
 
   welcome: {
     backgroundColor: C.g800,
