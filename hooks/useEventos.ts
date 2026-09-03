@@ -44,9 +44,24 @@ export function useSolicitarEvento() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (input: SolicitarEventoInput) => eventoService.solicitarEvento(input),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: CHAVE_EVENTOS });
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: CHAVE_EVENTOS }),
+  });
+}
+
+export function useConfirmarEvento() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => eventoService.confirmarEvento(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: CHAVE_EVENTOS }),
+  });
+}
+
+export function useConcluirEvento() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, observacao, custo }: { id: string; observacao?: string; custo?: number }) =>
+      eventoService.concluirEvento(id, observacao, custo),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: CHAVE_EVENTOS }),
   });
 }
 
@@ -55,9 +70,7 @@ export function useCancelarEvento() {
   return useMutation({
     mutationFn: ({ id, motivo }: { id: string; motivo: string }) =>
       eventoService.cancelarEvento(id, motivo),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: CHAVE_EVENTOS });
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: CHAVE_EVENTOS }),
   });
 }
 
@@ -65,8 +78,6 @@ export function useRemoverEvento() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => eventoService.removerEvento(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: CHAVE_EVENTOS });
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: CHAVE_EVENTOS }),
   });
 }
