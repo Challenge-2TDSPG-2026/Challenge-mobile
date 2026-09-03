@@ -1,27 +1,28 @@
-import type { Evento } from '../types';
-
-export type StatusExibicao = 'pendente' | 'atrasado' | 'concluido' | 'cancelado';
+import type { Evento, StatusEventoExibicao } from '../types';
 
 export function parseDataEvento(iso: string): Date {
   return iso.length === 10 ? new Date(`${iso}T12:00:00`) : new Date(iso);
 }
 
-export function statusExibicao(evento: Evento): StatusExibicao {
-  if (evento.status === 'CONCLUIDO') return 'concluido';
-  if (evento.status === 'CANCELADO') return 'cancelado';
-
+export function statusExibicao(evento: Evento): StatusEventoExibicao {
+  if (evento.status === 'CONCLUIDO' || evento.status === 'CANCELADO') return evento.status;
   const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
   const data = parseDataEvento(evento.data); data.setHours(0, 0, 0, 0);
-  return data < hoje ? 'atrasado' : 'pendente';
+  return data < hoje ? 'ATRASADO' : evento.status;
 }
 
-export const STATUS_EXIBICAO_BADGE: Record<StatusExibicao, { bg: string; color: string; label: string }> = {
-  pendente: { bg: '#fef3c7', color: '#92400e', label: 'Pendente' },
-  concluido: { bg: '#dcfce7', color: '#166534', label: 'Realizado' },
-  atrasado: { bg: '#fee2e2', color: '#991b1b', label: 'Atrasado' },
-  cancelado: { bg: '#f0ece5', color: '#7a6a5e', label: 'Cancelado' },
+export const STATUS_EXIBICAO_BADGE: Record<StatusEventoExibicao, { bg: string; color: string; label: string }> = {
+  SOLICITADO: { bg: '#fef3c7', color: '#92400e', label: 'Aguardando confirmação' },
+  CONFIRMADO: { bg: '#dbeafe', color: '#1e40af', label: 'Confirmado' },
+  CONCLUIDO: { bg: '#dcfce7', color: '#166534', label: 'Realizado' },
+  CANCELADO: { bg: '#f0ece5', color: '#7a6a5e', label: 'Cancelado' },
+  ATRASADO: { bg: '#fee2e2', color: '#991b1b', label: 'Atrasado' },
 };
 
 export function formatarDataEvento(iso: string): string {
   return parseDataEvento(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+export function formatarDataHoraEvento(iso: string): string {
+  return parseDataEvento(iso).toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
