@@ -4,58 +4,30 @@ import {
   StyleSheet, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ESPECIALIDADES_VET } from '../constants';
-import { usePet } from '../context/PetContext';
-import { useVet } from '../context/VetContext';
-import { authService, ContaNaoEncontradaError } from '../services/authService';
+import { useAuth } from '../context/AuthContext';
+import { ApiError } from '../services/api/httpClient';
 import { alertar } from '../utils/alert';
 import { AppIcon } from '../components/AppIcon';
-import type { Pet, Veterinario } from '../types';
 
 const C = {
   g900: '#0a2218', g800: '#0e3326', g700: '#155c3f', g600: '#1a7a52',
-  g500: '#22a06b', g400: '#3db87e', g200: '#a8e6c7', g100: '#d4f2e4', g50: '#edfaf3',
-  cream: '#fafaf8', w50: '#f9f7f4', w100: '#f0ece5',
-  text: '#1a1512', muted: '#7a6a5e', border: '#e8e2da', white: '#fff',
+  g500: '#22a06b', g200: '#a8e6c7',
+  white: '#fff', text: '#1a1512', muted: '#7a6a5e', border: '#e8e2da',
   danger: '#dc3545',
 };
 
-// ⚠️ DEV ONLY — REMOVER ANTES DA ENTREGA FINAL / QUANDO O BACKEND ESTIVER PRONTO
-// O cadastro de contas (tutor e veterinário) passou a ser feito pelo sistema
-// de admin — o app só faz login, e o e-mail informado é quem determina para
-// onde a pessoa é levada. Sem backend, esses e-mails de teste populam o
-// diretório local de contas conhecidas (ver authService.loginDev) para o
-// desenvolvimento não ficar travado sem uma conta real pra usar.
-const EMAIL_TESTE_TUTOR = 'tutor.teste@petcare.dev';
-const EMAIL_TESTE_VET = 'vet.teste@petcare.dev';
-const SENHA_TESTE = '123456';
+// ⚠️ DEV ONLY — contas seedadas pelo MockData.java, só existem em ambiente de dev/teste real
+const EMAIL_TESTE_TUTOR = 'maria@email.com';
+const EMAIL_TESTE_VET = 'ana.vet@clyvovet.com';
+const SENHA_TESTE = 'senha123';
 
-function criarPetDev(): Pet {
-  return {
-    id: Date.now().toString(),
-    nome: 'Rex (dev)',
-    especie: 'cachorro',
-    raca: 'SRD',
-    dataNascimento: new Date(2022, 0, 1, 12).toISOString(),
-    peso: '12',
-  };
-}
-
-function criarVeterinarioDev(): Veterinario {
-  return {
-    id: Date.now().toString(),
-    nome: 'Dra. Ana Teste',
-    crmv: 'CRMV-SP 00000',
-    especialidade: ESPECIALIDADES_VET[0],
-    clinica: 'Clínica ClyvoVet (dev)',
-    criadoEm: new Date().toISOString(),
-  };
+function mensagemDeErro(e: unknown, fallback: string): string {
+  return e instanceof ApiError ? e.message : fallback;
 }
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { adicionarPet, onboardingConcluido } = usePet();
-  const { veterinarios, veterinarioAtivoId, cadastrarVeterinario, selecionarVeterinario } = useVet();
+  const { login } = useAuth();
 
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
@@ -65,88 +37,35 @@ export default function LoginScreen() {
   function validarConta(): boolean {
     const e: Record<string, string> = {};
     if (!email.trim() || !email.includes('@')) e.email = 'E-mail inválido';
-    if (!senha.trim() || senha.length < 6) e.senha = 'Senha deve ter pelo menos 6 caracteres';
+    if (!senha.trim()) e.senha = 'Informe sua senha';
     setErrosConta(e);
     return Object.keys(e).length === 0;
-  }
-
-  // Depois de logar, o tipoConta retornado pela sessão é quem decide para
-  // onde a pessoa vai — não existe mais escolha manual de "sou tutor" ou
-  // "sou veterinário" em lugar nenhum da tela.
-  async function irParaAreaDaConta(tipoConta: 'tutor' | 'veterinario') {
-    if (tipoConta === 'veterinario') {
-      if (veterinarios.length === 0) {
-        alertar(
-          'Nenhum veterinário encontrado',
-          'Não há dados de veterinário cadastrados neste dispositivo ainda. Fale com a administração.'
-        );
-        return;
-      }
-      if (!veterinarioAtivoId) {
-        await selecionarVeterinario(veterinarios[0].id);
-      }
-      router.replace('/(vet)');
-      return;
-    }
-
-    if (!onboardingConcluido) {
-      alertar(
-        'Nenhum pet encontrado',
-        'Não há pets cadastrados neste dispositivo ainda. Fale com a administração para cadastrar seu pet.'
-      );
-      return;
-    }
-    router.replace('/(tutor)');
   }
 
   async function handleEntrar() {
     if (!validarConta()) return;
     setAutenticando(true);
     try {
-      const sessao = await authService.login(email, senha);
-      await irParaAreaDaConta(sessao.tipoConta);
-    } catch (erro) {
-      if (erro instanceof ContaNaoEncontradaError) {
-        alertar('E-mail não encontrado', 'Verifique o e-mail informado ou fale com a administração para criar sua conta.');
-      } else {
-        alertar('Não foi possível entrar', 'Tente novamente em instantes.');
-      }
+      await login(email, senha);
+      // Navegação (para (tutor) ou (vet), conforme sessao.perfil) é reativa,
+      // controlada pelo RootNavigator em app/_layout.tsx.
+    } catch (e) {
+      alertar('Não foi possível entrar', mensagemDeErro(e, 'Verifique seu e-mail e senha.'));
     } finally {
       setAutenticando(false);
     }
   }
 
-  // ⚠️ DEV ONLY — REMOVER ANTES DA ENTREGA FINAL / QUANDO O BACKEND ESTIVER PRONTO
-  async function handleEntrarDevTutor() {
+  // ⚠️ DEV ONLY — preenche com contas reais seedadas pelo MockData.java
+  async function handleEntrarDev(emailDev: string) {
+    setEmail(emailDev);
+    setSenha(SENHA_TESTE);
+    setErrosConta({});
     setAutenticando(true);
     try {
-      setEmail(EMAIL_TESTE_TUTOR);
-      setSenha(SENHA_TESTE);
-      setErrosConta({});
-      await authService.loginDev(EMAIL_TESTE_TUTOR, SENHA_TESTE, 'tutor');
-      if (!onboardingConcluido) {
-        await adicionarPet(criarPetDev());
-      }
-      router.replace('/(tutor)');
-    } finally {
-      setAutenticando(false);
-    }
-  }
-
-  // ⚠️ DEV ONLY — REMOVER ANTES DA ENTREGA FINAL / QUANDO O BACKEND ESTIVER PRONTO
-  async function handleEntrarDevVet() {
-    setAutenticando(true);
-    try {
-      setEmail(EMAIL_TESTE_VET);
-      setSenha(SENHA_TESTE);
-      setErrosConta({});
-      await authService.loginDev(EMAIL_TESTE_VET, SENHA_TESTE, 'veterinario');
-      if (veterinarios.length === 0) {
-        await cadastrarVeterinario(criarVeterinarioDev());
-      } else if (!veterinarioAtivoId) {
-        await selecionarVeterinario(veterinarios[0].id);
-      }
-      router.replace('/(vet)');
+      await login(emailDev, SENHA_TESTE);
+    } catch (e) {
+      alertar('Não foi possível entrar', mensagemDeErro(e, 'Verifique se a API está rodando e com os dados seedados.'));
     } finally {
       setAutenticando(false);
     }
@@ -178,8 +97,8 @@ export default function LoginScreen() {
             <View style={s.loginIntro}>
               <AppIcon name="lock-closed-outline" set="Ionicons" size={22} color={C.g600} />
               <Text style={s.loginIntroText}>
-                Entre com sua conta de tutor ou veterinário. O e-mail é quem
-                determina para onde você vai.
+                Entre com sua conta de tutor ou veterinário. O perfil da sua
+                conta é quem determina para onde você vai.
               </Text>
             </View>
 
@@ -187,7 +106,7 @@ export default function LoginScreen() {
               <View style={s.devRow}>
                 <Pressable
                   style={[s.btnDev, autenticando && { opacity: 0.6 }]}
-                  onPress={handleEntrarDevTutor}
+                  onPress={() => handleEntrarDev(EMAIL_TESTE_TUTOR)}
                   disabled={autenticando}
                 >
                   <AppIcon name="paw" set="MaterialCommunityIcons" size={14} color="#e67e22" />
@@ -195,7 +114,7 @@ export default function LoginScreen() {
                 </Pressable>
                 <Pressable
                   style={[s.btnDev, autenticando && { opacity: 0.6 }]}
-                  onPress={handleEntrarDevVet}
+                  onPress={() => handleEntrarDev(EMAIL_TESTE_VET)}
                   disabled={autenticando}
                 >
                   <AppIcon name="medical-bag" set="MaterialCommunityIcons" size={14} color="#e67e22" />
@@ -231,7 +150,7 @@ export default function LoginScreen() {
             </Pressable>
 
             <Text style={s.loginNota}>
-              Ainda sem backend — o login valida localmente os dados deste dispositivo.
+              Não tem conta? Fale com a administração para criar seu acesso.
             </Text>
 
           </View>
@@ -347,7 +266,7 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: C.w50,
+    backgroundColor: '#f9f7f4',
     borderRadius: 12,
     padding: 14,
     marginBottom: 20,
